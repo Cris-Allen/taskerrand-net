@@ -39,6 +39,9 @@
                 min-width: 120px;
             }
         }
+        /* Location inputs layout */
+        #locations-container .location-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        #locations-container .location-item.active input[type='text'] { outline: 2px solid #2684ff; }
     </style>
 </head>
 <body>
@@ -107,11 +110,20 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>Location * (Click on the map to select)</label>
-                    <input type="text" id="location_address" name="location_address" placeholder="Search for address or click on map">
+                    <label>Location(s) * (Click on the map to select)</label>
+
+                    <!-- Locations container: first (primary) location keeps original IDs for compatibility -->
+                    <div id="locations-container">
+                        <div class="location-item" data-index="0">
+                            <input type="text" id="location_address" data-index="0" name="location_address" placeholder="Search for address or click on map">
+                            <input type="hidden" id="location_lat" data-index="0" name="location_lat" required>
+                            <input type="hidden" id="location_lng" data-index="0" name="location_lng" required>
+                        </div>
+                    </div>
+
+                    <button type="button" id="add-location-btn" class="btn" style="display:none; margin-top:8px;">Add another location</button>
+
                     <div id="map"></div>
-                    <input type="hidden" id="location_lat" name="location_lat" required>
-                    <input type="hidden" id="location_lng" name="location_lng" required>
                 </div>
                 <div id="error-message"></div>
 

@@ -22,6 +22,12 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUser = user;
 
+    // populate header profile/name (same as other pages)
+    const usernameEl = document.getElementById("username");
+    const profileEl = document.getElementById("profile");
+    if (usernameEl) usernameEl.textContent = user.displayName || user.email;
+    if (profileEl) profileEl.src = user.photoURL || "";
+
     try {
         userData = await api.getCurrentUser();
         // show admin link if applicable
