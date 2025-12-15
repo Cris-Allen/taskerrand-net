@@ -102,8 +102,10 @@ async def create_task(
     current_user: User = Depends(get_current_user_db),
     db: Session = Depends(get_db)
 ):
+    # Prevent passing 'locations' (list of dicts) directly into ORM constructor
+    task_payload = {k: v for k, v in task.dict().items() if k != 'locations'}
     db_task = Task(
-        **task.dict(),
+        **task_payload,
         poster_id=current_user.id,
         status="available"
     )
@@ -190,14 +192,34 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Serialize related locations into simple dicts for consistent API responses
+    # Build a serializable response dict instead of mutating ORM relationship
+    locations = []
     if hasattr(task, 'locations') and task.locations:
-        task.locations = [
-            { 'lat': loc.lat, 'lng': loc.lng, 'address': loc.address, 'idx': loc.idx }
-            for loc in task.locations
-        ]
+        for loc in task.locations:
+            locations.append({ 'lat': loc.lat, 'lng': loc.lng, 'address': loc.address, 'idx': getattr(loc, 'idx', 0) })
 
-    return task
+    response = {
+        'id': task.id,
+        'title': task.title,
+        'description': task.description,
+        'payment': task.payment,
+        'contact_number': task.contact_number,
+        'location_lat': task.location_lat,
+        'location_lng': task.location_lng,
+        'location_address': task.location_address,
+        'schedule': task.schedule,
+        'status': task.status,
+        'poster_id': task.poster_id,
+        'seeker_id': task.seeker_id,
+        'accepted_at': task.accepted_at,
+        'completed_at': task.completed_at,
+        'created_at': task.created_at,
+        'updated_at': task.updated_at,
+        'feedback': task.feedback,
+        'locations': locations if locations else None
+    }
+
+    return response
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse)
 async def update_task(
