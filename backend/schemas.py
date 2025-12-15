@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from typing import List
 from datetime import datetime
 
 # User Schemas
@@ -58,7 +59,8 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
-    pass
+    # New: allow submitting multiple locations as an ordered list
+    locations: Optional[List[dict]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -71,6 +73,8 @@ class TaskUpdate(BaseModel):
     location_address: Optional[str] = None
     schedule: Optional[datetime] = None
     status: Optional[str] = None
+    # Allow updating locations
+    locations: Optional[List[dict]] = None
 
 
 class TaskResponse(TaskBase):
@@ -83,6 +87,7 @@ class TaskResponse(TaskBase):
     created_at: datetime
     updated_at: datetime
     feedback: Optional[FeedbackResponse] = None
+    locations: Optional[List[dict]] = None
 
     class Config:
         from_attributes = True

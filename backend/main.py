@@ -7,7 +7,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from database import SessionLocal, engine, Base
-from models import User, Task, Message, Feedback, TaskReport, Notification
+from models import User, Task, Message, Feedback, TaskReport, Notification, TaskLocation
 from schemas import (
     UserCreate, UserResponse, TaskCreate, TaskUpdate, TaskResponse,
     MessageCreate, MessageResponse, FeedbackCreate, FeedbackResponse,
@@ -110,6 +110,29 @@ async def create_task(
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
+
+    # If multiple locations were provided, store them in task_locations table
+    if getattr(task, 'locations', None):
+        # remove any existing (shouldn't be any on create) and add new
+        for i, loc in enumerate(task.locations):
+            try:
+                lat = float(loc.get('lat') if isinstance(loc, dict) else getattr(loc, 'lat'))
+                lng = float(loc.get('lng') if isinstance(loc, dict) else getattr(loc, 'lng'))
+                addr = loc.get('address') if isinstance(loc, dict) else getattr(loc, 'address', None)
+            except Exception:
+                continue
+            tl = TaskLocation(task_id=db_task.id, lat=lat, lng=lng, address=addr, idx=i)
+            db.add(tl)
+        # set primary fields from first location for backward compatibility
+        first = task.locations[0]
+        try:
+            db_task.location_lat = float(first.get('lat') if isinstance(first, dict) else getattr(first, 'lat'))
+            db_task.location_lng = float(first.get('lng') if isinstance(first, dict) else getattr(first, 'lng'))
+            db_task.location_address = first.get('address') if isinstance(first, dict) else getattr(first, 'address', None)
+        except Exception:
+            pass
+        db.commit()
+        db.refresh(db_task)
     return db_task
 
 @app.get("/api/tasks", response_model=List[TaskResponse])
@@ -166,6 +189,14 @@ async def get_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Serialize related locations into simple dicts for consistent API responses
+    if hasattr(task, 'locations') and task.locations:
+        task.locations = [
+            { 'lat': loc.lat, 'lng': loc.lng, 'address': loc.address, 'idx': loc.idx }
+            for loc in task.locations
+        ]
+
     return task
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse)
@@ -184,7 +215,30 @@ async def update_task(
         raise HTTPException(status_code=403, detail="Not authorized to update this task")
     
     for key, value in task_update.dict(exclude_unset=True).items():
-        setattr(task, key, value)
+        # Locations handled separately
+        if key == 'locations':
+            # delete existing locations and recreate
+            db.query(TaskLocation).filter(TaskLocation.task_id == task.id).delete(synchronize_session=False)
+            for i, loc in enumerate(value):
+                try:
+                    lat = float(loc.get('lat') if isinstance(loc, dict) else getattr(loc, 'lat'))
+                    lng = float(loc.get('lng') if isinstance(loc, dict) else getattr(loc, 'lng'))
+                    addr = loc.get('address') if isinstance(loc, dict) else getattr(loc, 'address', None)
+                except Exception:
+                    continue
+                tl = TaskLocation(task_id=task.id, lat=lat, lng=lng, address=addr, idx=i)
+                db.add(tl)
+            # update primary fields from first location
+            if len(value) > 0:
+                first = value[0]
+                try:
+                    task.location_lat = float(first.get('lat') if isinstance(first, dict) else getattr(first, 'lat'))
+                    task.location_lng = float(first.get('lng') if isinstance(first, dict) else getattr(first, 'lng'))
+                    task.location_address = first.get('address') if isinstance(first, dict) else getattr(first, 'address', None)
+                except Exception:
+                    pass
+        else:
+            setattr(task, key, value)
     
     db.commit()
     db.refresh(task)

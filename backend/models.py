@@ -112,3 +112,21 @@ class Notification(Base):
     # Relationships
     user = relationship("User", back_populates="notifications")
     task = relationship("Task", foreign_keys=[task_id], back_populates="notifications")
+
+
+class TaskLocation(Base):
+    __tablename__ = "task_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    address = Column(String, nullable=True)
+    idx = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    task = relationship("Task", back_populates="locations")
+
+# Relationship from Task -> TaskLocation (ordered by idx)
+Task.locations = relationship("TaskLocation", back_populates="task", cascade="all, delete-orphan", order_by="TaskLocation.idx")

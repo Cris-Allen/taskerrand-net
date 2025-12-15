@@ -74,14 +74,42 @@ async function checkEditMode() {
             const local = new Date(d.getTime() - (offset*60000));
             document.getElementById('schedule').value = local.toISOString().slice(0,16);
         }
-        if (task.location_address) document.getElementById('location_address').value = task.location_address;
-        if (task.location_lat) document.getElementById('location_lat').value = task.location_lat;
-        if (task.location_lng) document.getElementById('location_lng').value = task.location_lng;
+        // If server provides `locations` array, populate all locations, otherwise preserve backward-compatible single fields
+        if (task.locations && Array.isArray(task.locations) && task.locations.length > 0) {
+            // populate first location
+            const first = task.locations[0];
+            if (first.address) document.getElementById('location_address').value = first.address;
+            if (first.lat) document.getElementById('location_lat').value = first.lat;
+            if (first.lng) document.getElementById('location_lng').value = first.lng;
 
-        // If editing with existing location, show add button if appropriate
-        if (task.location_address || task.location_lat || task.location_lng) {
+            // create additional location inputs for others
+            for (let i = 1; i < task.locations.length; i++) {
+                const loc = task.locations[i];
+                const idx = createLocationInput();
+                const addrEl = document.querySelector(`#locations-container .location-item[data-index='${idx}'] input[type='text']`);
+                const latEl = document.getElementById(`location_lat_${idx}`);
+                const lngEl = document.getElementById(`location_lng_${idx}`);
+                if (addrEl && loc.address) addrEl.value = loc.address;
+                if (latEl && loc.lat) latEl.value = loc.lat;
+                if (lngEl && loc.lng) lngEl.value = loc.lng;
+                // place markers if map present
+                if (map && loc.lat && loc.lng) {
+                    ensureMarkerForIndex(idx, [parseFloat(loc.lat), parseFloat(loc.lng)]);
+                }
+            }
+
             toggleAddButtonIfNeeded();
             setActiveLocationIndex(0);
+        } else {
+            if (task.location_address) document.getElementById('location_address').value = task.location_address;
+            if (task.location_lat) document.getElementById('location_lat').value = task.location_lat;
+            if (task.location_lng) document.getElementById('location_lng').value = task.location_lng;
+
+            // If editing with existing location, show add button if appropriate
+            if (task.location_address || task.location_lat || task.location_lng) {
+                toggleAddButtonIfNeeded();
+                setActiveLocationIndex(0);
+            }
         }
 
         // Update UI: change button text and cancel link
@@ -91,8 +119,27 @@ async function checkEditMode() {
         const cancelLink = document.querySelector('.post-task-buttons-container .btn-outline');
         if (cancelLink) cancelLink.href = `./task-detail.html?id=${editTaskId}`;
 
-        // If map already initialized, place marker for primary (index 0)
-        if (task.location_lat && task.location_lng) {
+        // If map already initialized, place markers for locations
+        if (task.locations && Array.isArray(task.locations) && task.locations.length > 0) {
+            // apply all locations to map or store for later
+            task.locations.forEach((loc, i) => {
+                const lat = parseFloat(loc.lat);
+                const lng = parseFloat(loc.lng);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    if (map) {
+                        ensureMarkerForIndex(i, [lat, lng]);
+                        if (i === 0) {
+                            map.setView([lat, lng], 15);
+                        }
+                        updateLocationFromMarker(i, [lat, lng]);
+                    } else {
+                        // push to pending list
+                        if (!Array.isArray(pendingMarkerCoords)) pendingMarkerCoords = [];
+                        pendingMarkerCoords.push({ index: i, lat, lng });
+                    }
+                }
+            });
+        } else if (task.location_lat && task.location_lng) {
             const lat = parseFloat(task.location_lat);
             const lng = parseFloat(task.location_lng);
             if (map) {
@@ -292,13 +339,23 @@ function toggleAddButtonIfNeeded() {
 
 // If we had pending marker coords from edit mode, apply them after map initialization
 function applyPendingMarker() {
-    if (pendingMarkerCoords && map) {
+    if (!map || !pendingMarkerCoords) return;
+    // If single object
+    if (!Array.isArray(pendingMarkerCoords)) {
         const { index, lat, lng } = pendingMarkerCoords;
         map.setView([lat, lng], 15);
         ensureMarkerForIndex(index, [lat, lng]);
         updateLocationFromMarker(index, [lat, lng]);
         pendingMarkerCoords = null;
+        return;
     }
+    // If array of coords
+    pendingMarkerCoords.forEach((p, i) => {
+        ensureMarkerForIndex(p.index, [p.lat, p.lng]);
+        updateLocationFromMarker(p.index, [p.lat, p.lng]);
+        if (i === 0) map.setView([p.lat, p.lng], 15);
+    });
+    pendingMarkerCoords = null;
 }
 
 // Ensure a marker exists for the given location index and optionally set its position
@@ -643,15 +700,30 @@ document.getElementById("task-form").addEventListener("submit", async (e) => {
         return;
     }
 
-    // Payload
+    // collect all locations from the UI
+    const locations = [];
+    const items = document.querySelectorAll('#locations-container .location-item');
+    items.forEach((it) => {
+        const idx = it.getAttribute('data-index');
+        const addrEl = it.querySelector(`input[type='text'][data-index='${idx}']`) || document.getElementById('location_address');
+        const latEl = it.querySelector(`input[id^='location_lat'][data-index='${idx}']`) || document.getElementById('location_lat');
+        const lngEl = it.querySelector(`input[id^='location_lng'][data-index='${idx}']`) || document.getElementById('location_lng');
+        if (latEl && latEl.value && lngEl && lngEl.value && addrEl && addrEl.value && addrEl.value.trim() !== '') {
+            locations.push({ lat: parseFloat(latEl.value), lng: parseFloat(lngEl.value), address: addrEl.value.trim() });
+        }
+    });
+
     const formData = {
         title,
         description,
         payment: parseFloat(payment),
         contact_number: contact,
+        // keep single primary fields for backward compatibility
         location_lat: parseFloat(lat),
         location_lng: parseFloat(lng),
         location_address: address,
+        // new: send all locations (may be empty)
+        locations,
         schedule: selectedDate.toISOString()
     };
 

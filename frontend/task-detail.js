@@ -141,7 +141,13 @@ function displayTask() {
             <p><strong>Payment:</strong> ₱${taskData.payment.toFixed(2)}</p>
             ${taskData.contact_number ? `<p><strong>Contact:</strong> ${taskData.contact_number}</p>` : ''}
             ${taskData.schedule ? `<p><strong>Schedule:</strong> ${new Date(taskData.schedule).toLocaleString()}</p>` : ''}
-            ${taskData.location_address ? `<p><strong>Location:</strong> ${taskData.location_address}</p>` : ''}
+            ${(() => {
+                // If multiple locations provided, show numbered list
+                if (taskData.locations && Array.isArray(taskData.locations) && taskData.locations.length > 0) {
+                    return taskData.locations.map((loc, i) => `<p><strong>Location ${i+1}:</strong> ${loc.address || (loc.lat + ', ' + loc.lng)}</p>`).join('');
+                }
+                return taskData.location_address ? `<p><strong>Location:</strong> ${taskData.location_address}</p>` : '';
+            })()}
         </div>
         <div style="position: relative; margin-top: 1rem;">
             <div id="map" style="width: 100%; height: 300px; border-radius: 6px;"></div>
@@ -158,23 +164,40 @@ function displayTask() {
 
 function initMap() {
     if (!taskData) return;
-    
-    const taskLocation = [taskData.location_lat, taskData.location_lng];
-    
-    // Create map
-    map = L.map('map').setView(taskLocation, 15);
-    
+
+    // Prepare list of locations: prefer `taskData.locations` if present, otherwise fall back to single loc fields
+    let locs = [];
+    if (taskData.locations && Array.isArray(taskData.locations) && taskData.locations.length > 0) {
+        locs = taskData.locations.map((l) => ({ lat: parseFloat(l.lat), lng: parseFloat(l.lng), address: l.address }));
+    } else if (taskData.location_lat && taskData.location_lng) {
+        locs = [{ lat: parseFloat(taskData.location_lat), lng: parseFloat(taskData.location_lng), address: taskData.location_address }];
+    }
+
+    if (locs.length === 0) return;
+
+    // Center map on first location (or fit to bounds when multiple)
+    map = L.map('map').setView([locs[0].lat, locs[0].lng], 15);
+
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(map);
-    
-    // Add marker
-    L.marker(taskLocation)
-        .addTo(map)
-        .bindPopup(taskData.title)
-        .openPopup();
+
+    // Add markers for all locations
+    const group = [];
+    locs.forEach((l, i) => {
+        const marker = L.marker([l.lat, l.lng]).addTo(map);
+        marker.bindPopup(`${taskData.title} (location ${i+1})`);
+        group.push([l.lat, l.lng]);
+        if (i === 0) marker.openPopup();
+    });
+
+    // If multiple locations, fit bounds
+    if (group.length > 1) {
+        const bounds = L.latLngBounds(group);
+        map.fitBounds(bounds.pad ? bounds.pad(0.2) : bounds);
+    }
 };
 
 function setupReportButton() {

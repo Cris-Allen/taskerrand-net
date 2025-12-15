@@ -72,4 +72,17 @@ CREATE TABLE IF NOT EXISTS `feedback` (
   CONSTRAINT `fk_feedback_seeker` FOREIGN KEY (`seeker_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `task_locations` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `task_id` INT NOT NULL,
+  `lat` DOUBLE NOT NULL,
+  `lng` DOUBLE NOT NULL,
+  `address` VARCHAR(255) NULL,
+  `idx` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `task_idx` (`task_id`),
+  CONSTRAINT `fk_task_locations_task` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
