@@ -192,34 +192,8 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Build a serializable response dict instead of mutating ORM relationship
-    locations = []
-    if hasattr(task, 'locations') and task.locations:
-        for loc in task.locations:
-            locations.append({ 'lat': loc.lat, 'lng': loc.lng, 'address': loc.address, 'idx': getattr(loc, 'idx', 0) })
-
-    response = {
-        'id': task.id,
-        'title': task.title,
-        'description': task.description,
-        'payment': task.payment,
-        'contact_number': task.contact_number,
-        'location_lat': task.location_lat,
-        'location_lng': task.location_lng,
-        'location_address': task.location_address,
-        'schedule': task.schedule,
-        'status': task.status,
-        'poster_id': task.poster_id,
-        'seeker_id': task.seeker_id,
-        'accepted_at': task.accepted_at,
-        'completed_at': task.completed_at,
-        'created_at': task.created_at,
-        'updated_at': task.updated_at,
-        'feedback': task.feedback,
-        'locations': locations if locations else None
-    }
-
-    return response
+    # Return the ORM Task instance and let FastAPI/Pydantic serialize it (TaskResponse now expects TaskLocationResponse objects)
+    return task
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse)
 async def update_task(

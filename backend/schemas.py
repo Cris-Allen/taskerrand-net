@@ -58,9 +58,29 @@ class TaskBase(BaseModel):
     schedule: Optional[datetime] = None
 
 
+# Location schemas
+class TaskLocationIn(BaseModel):
+    lat: float
+    lng: float
+    address: Optional[str] = None
+    idx: Optional[int] = None
+
+
+class TaskLocationResponse(BaseModel):
+    id: int
+    lat: float
+    lng: float
+    address: Optional[str] = None
+    idx: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TaskCreate(TaskBase):
     # New: allow submitting multiple locations as an ordered list
-    locations: Optional[List[dict]] = None
+    locations: Optional[List[TaskLocationIn]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -74,7 +94,7 @@ class TaskUpdate(BaseModel):
     schedule: Optional[datetime] = None
     status: Optional[str] = None
     # Allow updating locations
-    locations: Optional[List[dict]] = None
+    locations: Optional[List[TaskLocationIn]] = None
 
 
 class TaskResponse(TaskBase):
@@ -87,7 +107,7 @@ class TaskResponse(TaskBase):
     created_at: datetime
     updated_at: datetime
     feedback: Optional[FeedbackResponse] = None
-    locations: Optional[List[dict]] = None
+    locations: Optional[List[TaskLocationResponse]] = None
 
     class Config:
         from_attributes = True
