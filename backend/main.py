@@ -21,13 +21,13 @@ from auth import verify_firebase_token, get_current_user
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+app = FastAPI(title="Taskerrand API", version="1.0.0")
+
 # Ensure uploads directory exists and serve it as static files for proof images
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'uploads')
 PROOF_DIR = os.path.join(UPLOAD_DIR, 'proofs')
 os.makedirs(PROOF_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=os.path.abspath(UPLOAD_DIR)), name="uploads")
-
-app = FastAPI(title="Taskerrand API", version="1.0.0")
 
 # CORS middleware
 app.add_middleware(
