@@ -35,6 +35,7 @@ onAuthStateChanged(auth, async (user) => {
         loadDashboardStats();
         loadMyTasks();
         loadNotifications();
+        loadProfileInfo(); // Load profile information after user data is loaded
     } catch (error) {
         console.error("Error loading user data:", error);
         displayUserInfo(user, null);
@@ -52,6 +53,158 @@ function displayUserInfo(user, userData) {
     if (profileEl) {
         profileEl.src = user.photoURL || "";
         profileEl.alt = user.displayName || "Profile";
+    }
+}
+
+async function loadProfileInfo() {
+    try {
+        // Show loading indicator
+        const loadingEl = document.getElementById("loading-profile");
+        const formEl = document.getElementById("profile-form");
+
+        if (loadingEl) loadingEl.style.display = "block";
+        if (formEl) formEl.style.display = "none";
+
+        // Get user profile data from the backend
+        const profileResponse = await fetch('/api/users/me', {
+            headers: {
+                'Authorization': `Bearer ${await api.getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!profileResponse.ok) {
+            throw new Error(`Failed to load profile: ${profileResponse.statusText}`);
+        }
+
+        const profileData = await profileResponse.json();
+
+        // Populate the profile form
+        const fullNameInput = document.getElementById("full-name");
+        const addressInput = document.getElementById("address");
+
+        if (fullNameInput) {
+            // Use the name from the profile data, combining first and last name if available
+            const fullName = profileData.name || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
+            fullNameInput.value = fullName;
+        }
+
+        if (addressInput) {
+            addressInput.value = profileData.address || '';
+        }
+
+        // Hide loading, show form
+        if (loadingEl) loadingEl.style.display = "none";
+        if (formEl) formEl.style.display = "block";
+
+        // Add event listener for form submission
+        const profileForm = document.getElementById("profile-form");
+        if (profileForm) {
+            profileForm.onsubmit = handleProfileUpdate;
+        }
+    } catch (error) {
+        console.error("Error loading profile:", error);
+        const loadingEl = document.getElementById("loading-profile");
+        if (loadingEl) {
+            loadingEl.textContent = `Error loading profile: ${error.message}`;
+            loadingEl.style.color = "red";
+        }
+    }
+}
+
+async function handleProfileUpdate(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    try {
+        const fullNameInput = document.getElementById("full-name");
+        const addressInput = document.getElementById("address");
+        const messageEl = document.getElementById("profile-message");
+
+        // Get the values
+        const fullName = fullNameInput.value.trim();
+        const address = addressInput.value.trim();
+
+        // Basic validation
+        if (!fullName) {
+            showMessage("Please enter your full name", "error");
+            return;
+        }
+
+        if (fullName.length < 2 || fullName.length > 100) {
+            showMessage("Name must be between 2 and 100 characters", "error");
+            return;
+        }
+
+        if (address && (address.length < 5 || address.length > 200)) {
+            showMessage("Address must be between 5 and 200 characters if provided", "error");
+            return;
+        }
+
+        // Prepare the profile data - split full name into first and last name
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const profileData = {
+            first_name: firstName,
+            last_name: lastName,
+            name: fullName,
+            address: address
+        };
+
+        // Update the profile via API
+        const response = await fetch('/api/users/me/profile', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${await api.getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(profileData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to update profile');
+        }
+
+        const updatedData = await response.json();
+
+        // Update the user data in the global variable
+        userData = updatedData;
+
+        // Update the welcome message with the new name
+        const usernameEl = document.getElementById("username");
+        if (usernameEl) {
+            usernameEl.textContent = `Welcome, ${updatedData.name || updatedData.email}!`;
+        }
+
+        showMessage("Profile updated successfully!", "success");
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        showMessage(`Error updating profile: ${error.message}`, "error");
+    }
+}
+
+function showMessage(message, type) {
+    const messageEl = document.getElementById("profile-message");
+    if (!messageEl) return;
+
+    messageEl.textContent = message;
+    messageEl.style.display = "block";
+
+    if (type === "success") {
+        messageEl.style.backgroundColor = "#d4edda";
+        messageEl.style.color = "#155724";
+        messageEl.style.border = "1px solid #c3e6cb";
+
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+            messageEl.style.display = "none";
+        }, 3000);
+    } else {
+        messageEl.style.backgroundColor = "#f8d7da";
+        messageEl.style.color = "#721c24";
+        messageEl.style.border = "1px solid #f5c6cb";
     }
 }
 
@@ -156,12 +309,6 @@ if (logoutBtn) {
     });
 }
 
-
-
-
-
-
-
 // Notification Logic
 async function loadNotifications() {
     // Helper: ensure backend naive datetimes are treated as UTC when parsing in the browser
@@ -239,10 +386,10 @@ window.handleNotificationView = async function (notificationId, taskId, seen, ev
 window.handleNotificationDelete = async function (notificationId, event) {
     try {
         event.stopPropagation();
-        
+
         // Delete the notification
         await api.deleteNotification(notificationId);
-        
+
         // Reload notifications to reflect the deletion
         loadNotifications();
     } catch (error) {

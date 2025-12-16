@@ -806,6 +806,50 @@ admin-dashboard.html
 /*
 * { background: url("../images/yoru.png") center/cover no-repeat fixed ;}
 
+/* Profile Section Styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 14px;
+    color: black;
+    background: rgb(233, 233, 233);
+    text-decoration: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.btn-primary {
+    width: 40%;
+    border-radius: 5px;
+    padding: 10px;
+    background: rgb(233, 233, 233);
+}
+
+.btn-primary:hover {
+    scale: 1.05;
+    transition: .3s ease-in-out;
+    background-color: rgb(205, 205, 205);
+}
+
 /* Notification Styles */
 .notification-container {
     position: relative;
