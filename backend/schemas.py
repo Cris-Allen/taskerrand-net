@@ -102,6 +102,8 @@ class TaskResponse(TaskBase):
     status: str
     poster_id: int
     seeker_id: Optional[int] = None
+    seeker: Optional[UserResponse] = None
+    proof_image: Optional[str] = None
     accepted_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime

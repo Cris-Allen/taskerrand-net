@@ -1,4 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+import os
+import uuid
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -17,6 +20,12 @@ from auth import verify_firebase_token, get_current_user
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Ensure uploads directory exists and serve it as static files for proof images
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'uploads')
+PROOF_DIR = os.path.join(UPLOAD_DIR, 'proofs')
+os.makedirs(PROOF_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=os.path.abspath(UPLOAD_DIR)), name="uploads")
 
 app = FastAPI(title="Taskerrand API", version="1.0.0")
 
@@ -317,6 +326,10 @@ async def complete_task(
     if task.seeker_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the seeker can mark task as complete")
     
+    # Require proof image before marking as done
+    if not getattr(task, 'proof_image', None):
+        raise HTTPException(status_code=400, detail="Please attach a proof image before marking as done")
+
     task.status = "pending_confirmation"
     
     db.commit()
@@ -332,6 +345,55 @@ async def complete_task(
         task.id
     )
     
+    return task
+
+
+@app.post("/api/tasks/{task_id}/proof", response_model=TaskResponse)
+async def upload_proof(
+    task_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_db),
+    db: Session = Depends(get_db)
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "ongoing":
+        raise HTTPException(status_code=400, detail="Can only upload proof for an ongoing task")
+
+    if task.seeker_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the seeker can upload proof for this task")
+
+    # Validate file type (basic check)
+    if not (file.content_type and file.content_type.startswith('image/')):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+
+    # Save file
+    filename = f"task_{task_id}_{uuid.uuid4().hex}_{file.filename}"
+    # Ensure upload dir exists
+    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs')
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, filename)
+    with open(file_path, 'wb') as f:
+        content = await file.read()
+        f.write(content)
+
+    # Store relative URL path that frontend can use (served under /uploads)
+    task.proof_image = f"/uploads/proofs/{filename}"
+    db.commit()
+    db.refresh(task)
+
+    # Notify poster about proof uploaded
+    create_notification(
+        db,
+        task.poster_id,
+        "Proof Uploaded",
+        f"Seeker for '{task.title}' uploaded proof of completion.",
+        "task_update",
+        task.id
+    )
+
     return task
 
 @app.post("/api/tasks/{task_id}/confirm", response_model=TaskResponse)

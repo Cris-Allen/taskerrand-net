@@ -135,6 +135,19 @@ function displayTask() {
         <div style="margin-bottom: 1rem;">
             <span class="task-status status-${taskData.status}">Status: ${taskData.status.replace('_', ' ')}</span>
         </div>
+        ${(() => {
+            // Show seeker/assignee information if available
+            if ((taskData.status === "ongoing" || taskData.status === "pending_confirmation") && taskData.seeker_id) {
+                const seekerName = userCache[taskData.seeker_id] || 'Unknown';
+                return `<div style="margin-bottom:0.5rem;"><strong>Task currently being worked by:</strong> <a class="creator-link" href="./other-users-dashboard.html?user_id=${taskData.seeker_id}">${seekerName}</a></div>`;
+            }
+            if (taskData.status === "completed" && taskData.seeker_id) {
+                const seekerName = userCache[taskData.seeker_id] || 'Unknown';
+                return `<div style="margin-bottom:0.5rem;"><strong>Task finished by:</strong> <a class="creator-link" href="./other-users-dashboard.html?user_id=${taskData.seeker_id}">${seekerName}</a></div>`;
+            }
+            return '';
+        })()}
+        ${taskData.proof_image ? `<div style="margin-bottom:0.5rem;"><strong>Proof image:</strong> <br/><a href="${taskData.proof_image}" target="_blank"><img src="${taskData.proof_image}" alt="proof" style="max-width:180px; max-height:120px; border-radius:6px; margin-top:6px;"/></a></div>` : ''}
         <p><strong>Description:</strong></p>
         <p>${taskData.description}</p>
         <div style="margin-top: 1.5rem;">
@@ -242,6 +255,8 @@ function setupActions() {
     } else if (taskData.status === "ongoing") {
         // Only the seeker (the one who accepted) can mark complete or cancel an ongoing task.
         if (isSeeker) {
+            // Insert proof upload input above the action buttons (required before marking done)
+            buttons.push(`<div id="proof-upload-container" style="margin-bottom:0.6rem; display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><input type="file" id="proof-file-input" accept="image/*" style="display:inline-block;"/><button class="btn btn-outline" id="upload-proof-btn">Upload Proof</button><div id="proof-upload-msg" style="font-size:13px;color:#444;"></div><div id="proof-preview" style="margin-left:8px;"></div></div>`);
             buttons.push(`<button class="btn btn-secondary" onclick="completeTask()">Mark as Done</button>`);
             buttons.push(`<button class="btn btn-danger" onclick="cancelTask()">Cancel Task</button>`);
         }
@@ -258,6 +273,58 @@ function setupActions() {
     if (buttons.length > 0) {
         actionButtons.innerHTML = buttons.join(" ");
         actionsContainer.style.display = "block";
+
+        // Wire up proof upload button if present
+        const uploadBtn = document.getElementById('upload-proof-btn');
+        const fileInput = document.getElementById('proof-file-input');
+        const uploadMsg = document.getElementById('proof-upload-msg');
+        if (uploadBtn && fileInput) {
+            uploadBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                uploadMsg.textContent = '';
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    uploadMsg.textContent = 'Please choose an image before uploading.';
+                    return;
+                }
+                const file = fileInput.files[0];
+                // Basic client-side validation
+                if (!file.type.startsWith('image/')) {
+                    uploadMsg.textContent = 'Selected file is not an image.';
+                    return;
+                }
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Uploading...';
+                try {
+                    const updated = await api.uploadProof(taskId, file);
+                    // Update local taskData and UI
+                    taskData = updated;
+                    loadTask();
+                    uploadMsg.textContent = 'Proof uploaded successfully.';
+                } catch (err) {
+                    console.error('Proof upload error', err);
+                    uploadMsg.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
+                } finally {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = 'Upload Proof';
+                }
+            });
+
+            // Show preview when selecting file
+            fileInput.addEventListener('change', (e) => {
+                const preview = document.getElementById('proof-preview');
+                if (!preview) return;
+                preview.innerHTML = '';
+                const f = fileInput.files && fileInput.files[0];
+                if (f) {
+                    const img = document.createElement('img');
+                    img.style.maxWidth = '160px';
+                    img.style.maxHeight = '120px';
+                    img.style.borderRadius = '6px';
+                    img.src = URL.createObjectURL(f);
+                    preview.appendChild(img);
+                }
+            });
+        }
     } else {
         // Clear any previous buttons and hide container when no actions apply
         actionButtons.innerHTML = "";
@@ -277,6 +344,12 @@ async function acceptTask() {
 
 async function completeTask() {
     if (!confirm("Mark this task as complete?")) return;
+
+    // Check that seeker has uploaded proof image before sending request
+    if (!taskData || !taskData.proof_image) {
+        alert('Please attach a proof image before you can mark this task as done. Use the Upload Proof button above.');
+        return;
+    }
     
     try {
         await api.completeTask(taskId);

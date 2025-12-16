@@ -87,6 +87,22 @@ export const api = {
     cancelTask: (taskId) => apiRequest(`/api/tasks/${taskId}/cancel`, {
         method: "POST"
     }),
+    uploadProof: async (taskId, file) => {
+        const token = await getAuthToken();
+        const url = `${API_URL}/api/tasks/${taskId}/proof`;
+        const form = new FormData();
+        form.append('file', file);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: form
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    },
     getMyTasks: (taskType = null) => {
         const params = taskType ? `?task_type=${taskType}` : "";
         return apiRequest(`/api/users/me/tasks${params}`);

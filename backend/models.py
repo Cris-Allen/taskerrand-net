@@ -40,6 +40,7 @@ class Task(Base):
     seeker_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     accepted_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    proof_image = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
