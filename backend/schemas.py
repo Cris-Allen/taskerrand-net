@@ -15,22 +15,12 @@ class UserCreate(UserBase):
     firebase_uid: str
 
 
-class UserProfileUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    address: Optional[str] = None
-    contact_number: Optional[str] = None
-    email: Optional[EmailStr] = None
-    name: Optional[str] = None
+
 
 
 class UserResponse(UserBase):
     id: int
-    firebase_uid: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    address: Optional[str] = None
-    contact_number: Optional[str] = None
+    
     is_admin: bool
     created_at: datetime
 
