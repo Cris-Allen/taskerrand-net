@@ -61,10 +61,37 @@ async function loadTargetUser() {
         const name = targetUser.name || targetUser.email || 'User';
         document.getElementById('user-dashboard-title').textContent = `${name}'s Dashboard`;
         document.getElementById('user-tasks-title').textContent = `${name}'s Tasks`;
+
+        // Display user profile information
+        displayUserProfile(targetUser);
     } catch (e) {
         console.error('Error fetching target user:', e);
         document.getElementById('user-dashboard-title').textContent = "User not found";
         document.getElementById('user-tasks-title').textContent = "User's Tasks";
+    }
+}
+
+function displayUserProfile(user) {
+    // Hide loading and show profile info
+    const loadingEl = document.getElementById('loading-user-profile');
+    const profileInfoEl = document.getElementById('user-profile-info');
+
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (profileInfoEl) profileInfoEl.style.display = 'block';
+
+    // Populate profile details
+    const nameEl = document.getElementById('profile-name');
+    const emailEl = document.getElementById('profile-email');
+    const addressEl = document.getElementById('profile-address');
+    const createdAtEl = document.getElementById('profile-created-at');
+
+    if (nameEl) nameEl.textContent = user.name || user.email || '-';
+    if (emailEl) emailEl.textContent = user.email || '-';
+    if (addressEl) addressEl.textContent = user.address || '-';
+    if (createdAtEl) {
+        const formattedDate = user.created_at ?
+            new Date(user.created_at).toLocaleDateString() : '-';
+        createdAtEl.textContent = formattedDate;
     }
 }
 

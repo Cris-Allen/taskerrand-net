@@ -47,9 +47,33 @@
     <main>
         <div class="container">
             <h2 id="user-dashboard-title">User's Dashboard</h2>
+            <div id="profile-section">
+                <div id="loading-user-profile">Loading user profile...</div>
+                <div id="user-profile-info" style="display: none;">
+                    <h3>User Profile</h3>
+                    <div class="profile-details-grid">
+                        <div class="profile-detail">
+                            <label>Name:</label>
+                            <span id="profile-name">-</span>
+                        </div>
+                        <div class="profile-detail">
+                            <label>Email:</label>
+                            <span id="profile-email">-</span>
+                        </div>
+                        <div class="profile-detail">
+                            <label>Address:</label>
+                            <span id="profile-address">-</span>
+                        </div>
+                        <div class="profile-detail">
+                            <label>Member Since:</label>
+                            <span id="profile-created-at">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div id="stats"></div>
         </div>
-        
+
         <div class="container">
             <h2 id="user-tasks-title">User's Tasks</h2>
             <div style="margin-bottom: 1rem;">

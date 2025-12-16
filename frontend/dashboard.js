@@ -70,7 +70,7 @@ async function loadProfileInfo() {
         // Get user profile data from the backend using the api helper method
         const profileData = await api.getCurrentUser();
 
-        // Populate the profile form with separate first and last name fields
+        // Populate the profile form with fields
         const firstNameInput = document.getElementById("first-name");
         const lastNameInput = document.getElementById("last-name");
         const addressInput = document.getElementById("address");
@@ -91,10 +91,16 @@ async function loadProfileInfo() {
         if (loadingEl) loadingEl.style.display = "none";
         if (formEl) formEl.style.display = "block";
 
-        // Add event listener for form submission
+        // Add event listeners for form submission and additional buttons
         const profileForm = document.getElementById("profile-form");
+        const saveProfileBtn = document.getElementById("save-profile-btn");
+
         if (profileForm) {
             profileForm.onsubmit = handleProfileUpdate;
+        }
+
+        if (saveProfileBtn) {
+            saveProfileBtn.onclick = handleProfileSave;
         }
     } catch (error) {
         console.error("Error loading profile:", error);
@@ -166,6 +172,68 @@ async function handleProfileUpdate(event) {
     } catch (error) {
         console.error("Error updating profile:", error);
         showMessage(`Error updating profile: ${error.message}`, "error");
+    }
+}
+
+async function handleProfileSave(event) {
+    event.preventDefault(); // Prevent default button behavior
+
+    try {
+        const firstNameInput = document.getElementById("first-name");
+        const lastNameInput = document.getElementById("last-name");
+        const addressInput = document.getElementById("address");
+
+        // Get the values
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+        const address = addressInput.value.trim();
+
+        // Basic validation
+        if (!firstName) {
+            showMessage("Please enter your first name", "error");
+            return;
+        }
+
+        if (firstName.length < 1 || firstName.length > 50) {
+            showMessage("First name must be between 1 and 50 characters", "error");
+            return;
+        }
+
+        if (lastName && (lastName.length < 1 || lastName.length > 50)) {
+            showMessage("Last name must be between 1 and 50 characters if provided", "error");
+            return;
+        }
+
+        if (address && (address.length < 5 || address.length > 200)) {
+            showMessage("Address must be between 5 and 200 characters if provided", "error");
+            return;
+        }
+
+        // Prepare the profile data with separate first and last name
+        const fullName = `${firstName} ${lastName}`.trim(); // Combine for the full name display
+        const profileData = {
+            first_name: firstName,
+            last_name: lastName,
+            name: fullName,
+            address: address
+        };
+
+        // Save the profile via API using the helper method
+        const updatedData = await api.updateUserProfile(profileData);
+
+        // Update the user data in the global variable
+        userData = updatedData;
+
+        // Update the welcome message with the new name
+        const usernameEl = document.getElementById("username");
+        if (usernameEl) {
+            usernameEl.textContent = `Welcome, ${updatedData.name || updatedData.email}!`;
+        }
+
+        showMessage("Profile saved successfully!", "success");
+    } catch (error) {
+        console.error("Error saving profile:", error);
+        showMessage(`Error saving profile: ${error.message}`, "error");
     }
 }
 
