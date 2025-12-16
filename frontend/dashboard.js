@@ -47,7 +47,9 @@ function displayUserInfo(user, userData) {
     const profileEl = document.getElementById("profile");
 
     if (usernameEl) {
-        usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+        // Display the combined name if available, otherwise use Firebase display name or email
+        const displayName = userData ? (userData.name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || user.displayName) : user.displayName;
+        usernameEl.textContent = `Welcome, ${displayName || user.email}!`;
     }
 
     if (profileEl) {
@@ -68,14 +70,17 @@ async function loadProfileInfo() {
         // Get user profile data from the backend using the api helper method
         const profileData = await api.getCurrentUser();
 
-        // Populate the profile form
-        const fullNameInput = document.getElementById("full-name");
+        // Populate the profile form with separate first and last name fields
+        const firstNameInput = document.getElementById("first-name");
+        const lastNameInput = document.getElementById("last-name");
         const addressInput = document.getElementById("address");
 
-        if (fullNameInput) {
-            // Use the name from the profile data, combining first and last name if available
-            const fullName = profileData.name || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
-            fullNameInput.value = fullName;
+        if (firstNameInput) {
+            firstNameInput.value = profileData.first_name || '';
+        }
+
+        if (lastNameInput) {
+            lastNameInput.value = profileData.last_name || '';
         }
 
         if (addressInput) {
@@ -105,22 +110,29 @@ async function handleProfileUpdate(event) {
     event.preventDefault(); // Prevent default form submission
 
     try {
-        const fullNameInput = document.getElementById("full-name");
+        const firstNameInput = document.getElementById("first-name");
+        const lastNameInput = document.getElementById("last-name");
         const addressInput = document.getElementById("address");
         const messageEl = document.getElementById("profile-message");
 
         // Get the values
-        const fullName = fullNameInput.value.trim();
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
         const address = addressInput.value.trim();
 
         // Basic validation
-        if (!fullName) {
-            showMessage("Please enter your full name", "error");
+        if (!firstName) {
+            showMessage("Please enter your first name", "error");
             return;
         }
 
-        if (fullName.length < 2 || fullName.length > 100) {
-            showMessage("Name must be between 2 and 100 characters", "error");
+        if (firstName.length < 1 || firstName.length > 50) {
+            showMessage("First name must be between 1 and 50 characters", "error");
+            return;
+        }
+
+        if (lastName && (lastName.length < 1 || lastName.length > 50)) {
+            showMessage("Last name must be between 1 and 50 characters if provided", "error");
             return;
         }
 
@@ -129,11 +141,8 @@ async function handleProfileUpdate(event) {
             return;
         }
 
-        // Prepare the profile data - split full name into first and last name
-        const nameParts = fullName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
+        // Prepare the profile data with separate first and last name
+        const fullName = `${firstName} ${lastName}`.trim(); // Combine for the full name display
         const profileData = {
             first_name: firstName,
             last_name: lastName,
