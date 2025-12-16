@@ -150,7 +150,7 @@ function displayTask() {
         ${taskData.proof_image ? (() => {
             // Ensure proof links use the backend absolute URL so they work when frontend and backend are on different origins
             const proofUrl = String(taskData.proof_image).startsWith('/') ? `${API_URL}${taskData.proof_image}` : taskData.proof_image;
-            return `<div style="margin-bottom:0.5rem;"><strong>Proof image:</strong> <br/><a href="${proofUrl}" target="_blank" rel="noopener noreferrer"><img src="${proofUrl}" alt="proof" style="max-width:180px; max-height:120px; border-radius:6px; margin-top:6px;"/></a><div style="margin-top:6px;"><a href="${proofUrl}" target="_blank" rel="noopener noreferrer">View proof image</a></div></div>`;
+            return `<div style="margin-bottom:0.5rem;"><strong>Proof image:</strong> <br/><a href="${proofUrl}" target="_blank" rel="noopener noreferrer"><img src="${proofUrl}" alt="proof" style="max-width:180px; max-height:120px; border-radius:6px; margin-top:6px;"/></a></div>`;
         })() : ''}
         <p><strong>Description:</strong></p>
         <p>${taskData.description}</p>
