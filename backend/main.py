@@ -201,6 +201,14 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # Attach report_count so frontend can display number of reports on task-detail page
+    try:
+        report_count = db.query(TaskReport).filter(TaskReport.task_id == task_id).count()
+    except Exception:
+        report_count = 0
+    # Attach as attribute for Pydantic from_attributes conversion
+    setattr(task, 'report_count', report_count)
+
     # Return the ORM Task instance and let FastAPI/Pydantic serialize it (TaskResponse now expects TaskLocationResponse objects)
     return task
 

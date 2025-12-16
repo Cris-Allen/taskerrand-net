@@ -104,6 +104,7 @@ class TaskResponse(TaskBase):
     seeker_id: Optional[int] = None
     seeker: Optional[UserResponse] = None
     proof_image: Optional[str] = None
+    report_count: Optional[int] = 0
     accepted_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime

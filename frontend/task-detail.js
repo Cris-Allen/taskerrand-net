@@ -130,7 +130,10 @@ function displayTask() {
     const container = document.getElementById("task-container");
     
     container.innerHTML = `
-        <h2>Title: ${taskData.title}</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h2 style="margin:0;">Title: ${taskData.title}</h2>
+            ${taskData.report_count && Number(taskData.report_count) > 0 ? `<div style="color:#b91c1c; font-weight:600;">Task reported ${taskData.report_count} time/s</div>` : ''}
+        </div>
         ${taskData.poster_id ? `<div class="task-creator">Created by: <a class="creator-link" href="./other-users-dashboard.html?user_id=${taskData.poster_id}">${userCache[taskData.poster_id] || 'Unknown'}</a></div>` : ''}
         <div style="margin-bottom: 1rem;">
             <span class="task-status status-${taskData.status}">Status: ${taskData.status.replace('_', ' ')}</span>
