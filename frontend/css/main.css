@@ -603,6 +603,13 @@ textarea {
     margin-bottom: 8px;
 }
 
+.task-acceptor {
+    font-size: 0.9rem;
+    color: #374151;
+    margin-top: 6px;
+    margin-bottom: 8px;
+}
+
 
 .btn-outline:hover {
     scale: 1.07;

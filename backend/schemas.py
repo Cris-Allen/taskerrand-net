@@ -15,12 +15,46 @@ class UserCreate(UserBase):
     firebase_uid: str
 
 
+class UserProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+    contact_number: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserProfileResponse(BaseModel):
+    id: int
+    firebase_uid: str
+    email: str
+    name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+    contact_number: Optional[str] = None
+    photo_url: Optional[str] = None
+    phone: Optional[str] = None
+    is_admin: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 
 
 
 class UserResponse(UserBase):
     id: int
-    
+    firebase_uid: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+    contact_number: Optional[str] = None
     is_admin: bool
     created_at: datetime
 

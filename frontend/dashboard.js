@@ -255,12 +255,26 @@ async function loadMyTasksWithFilter(statusFilter = null) {
             // Fetch poster names and render tasks with creator shown
             const rendered = await Promise.all(filteredTasks.map(async (task) => {
                 let posterName = 'Unknown';
-                try { const u = await api.getUser(task.poster_id); posterName = u.name || u.email || posterName; } catch (e) { }
+                try {
+                    const u = await api.getUser(task.poster_id);
+                    posterName = u.name || u.email || posterName;
+                } catch (e) { }
+
+                // Check if the task has a seeker/acceptor
+                let seekerName = null;
+                if (task.seeker_id) {
+                    try {
+                        const seeker = await api.getUser(task.seeker_id);
+                        seekerName = seeker.name || seeker.email || 'Unknown';
+                    } catch (e) { }
+                }
+
                 return `
                 <div class="task-card" onclick="window.location.href='./task-detail.html?id=${task.id}'">
                     <a></a>
                     <h3>Task: ${task.title}</h3>
-                    <div class="task-creator">Created by: ${posterName}</div>
+                    <div class="task-creator">Created by: <a href="./other-users-dashboard.html?user_id=${task.poster_id}">${posterName}</a></div>
+                    ${seekerName ? `<div class="task-acceptor">Accepted by: <a href="./other-users-dashboard.html?user_id=${task.seeker_id}">${seekerName}</a></div>` : ''}
                     <p>Description: ${task.description.substring(0, 100)}${task.description.length > 100 ? '...' : ''}</p>
                     <div class="task-meta">
                         <span style="display: block" class="task-status status-${task.status}">Status: ${task.status.replace('_', ' ')}</span>

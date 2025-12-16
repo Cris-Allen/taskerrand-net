@@ -14,7 +14,7 @@ from models import User, Task, Message, Feedback, TaskReport, Notification, Task
 from schemas import (
     UserCreate, UserResponse, TaskCreate, TaskUpdate, TaskResponse,
     MessageCreate, MessageResponse, FeedbackCreate, FeedbackResponse,
-    TaskReportCreate, TaskReportResponse, NotificationResponse
+    TaskReportCreate, TaskReportResponse, NotificationResponse, UserProfileUpdate
 )
 from auth import verify_firebase_token, get_current_user
 
