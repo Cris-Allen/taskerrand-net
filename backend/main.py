@@ -14,7 +14,8 @@ from models import User, Task, Message, Feedback, TaskReport, Notification, Task
 from schemas import (
     UserCreate, UserResponse, TaskCreate, TaskUpdate, TaskResponse,
     MessageCreate, MessageResponse, FeedbackCreate, FeedbackResponse,
-    TaskReportCreate, TaskReportResponse, NotificationResponse
+    TaskReportCreate, TaskReportResponse, NotificationResponse,
+    UserProfileUpdate
 )
 from auth import verify_firebase_token, get_current_user
 
@@ -59,7 +60,7 @@ async def get_current_user_db(
     if not user_data:
         print("ERROR: Token verification failed")
         raise HTTPException(status_code=401, detail="Invalid authentication token")
-    
+
     # Get or create user in database
     user = db.query(User).filter(User.firebase_uid == user_data["uid"]).first()
     if not user:
@@ -73,7 +74,7 @@ async def get_current_user_db(
         db.add(user)
         db.commit()
         db.refresh(user)
-    
+
     return user
 
     return user
@@ -95,6 +96,94 @@ def create_notification(db: Session, user_id: int, title: str, message: str, not
 @app.get("/api/users/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user_db)):
     return current_user
+
+
+@app.put("/api/users/me/profile", response_model=UserResponse)
+async def update_user_profile(
+    profile_update: UserProfileUpdate,
+    current_user: User = Depends(get_current_user_db),
+    db: Session = Depends(get_db)
+):
+    """Update user profile information with validation to prevent scam activity"""
+
+    # Validate and sanitize inputs
+    if profile_update.first_name:
+        # Ensure first name is valid (no special characters, not too long)
+        first_name = profile_update.first_name.strip()
+        if len(first_name) < 1 or len(first_name) > 50:
+            raise HTTPException(status_code=400, detail="First name must be between 1 and 50 characters")
+
+        # Basic validation to prevent potential abuse
+        if not all(c.isalpha() or c.isspace() or c == '-' or c == "'" for c in first_name):
+            raise HTTPException(status_code=400, detail="First name contains invalid characters")
+
+        current_user.first_name = first_name
+
+    if profile_update.last_name:
+        # Ensure last name is valid (no special characters, not too long)
+        last_name = profile_update.last_name.strip()
+        if len(last_name) < 1 or len(last_name) > 50:
+            raise HTTPException(status_code=400, detail="Last name must be between 1 and 50 characters")
+
+        # Basic validation to prevent potential abuse
+        if not all(c.isalpha() or c.isspace() or c == '-' or c == "'" for c in last_name):
+            raise HTTPException(status_code=400, detail="Last name contains invalid characters")
+
+        current_user.last_name = last_name
+
+    if profile_update.address:
+        # Validate address length
+        address = profile_update.address.strip()
+        if len(address) < 5 or len(address) > 200:
+            raise HTTPException(status_code=400, detail="Address must be between 5 and 200 characters")
+
+        current_user.address = address
+
+    if profile_update.contact_number:
+        # Validate contact number format (simple validation)
+        contact_number = profile_update.contact_number.strip()
+
+        # Remove spaces, hyphens, parentheses, etc.
+        clean_contact = ''.join(filter(str.isdigit, contact_number))
+
+        # Check if it's a valid phone number (between 7 and 15 digits)
+        if len(clean_contact) < 7 or len(clean_contact) > 15:
+            raise HTTPException(status_code=400, detail="Contact number must be between 7 and 15 digits")
+
+        current_user.contact_number = contact_number
+
+    if profile_update.email:
+        # Update email if provided (though this might need special validation for security)
+        current_user.email = profile_update.email
+
+    if profile_update.name:
+        # Update name if provided
+        name = profile_update.name.strip()
+        if len(name) > 100:
+            raise HTTPException(status_code=400, detail="Name must be 100 characters or less")
+        current_user.name = name
+
+    try:
+        db.commit()
+        db.refresh(current_user)
+        return current_user
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+
+# Endpoint to get another user's profile (public information)
+@app.get("/api/users/{user_id}/profile", response_model=UserResponse)
+async def get_user_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user_db),
+    db: Session = Depends(get_db)
+):
+    """Get public profile information for a specific user"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 @app.get("/api/users/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, current_user: User = Depends(get_current_user_db), db: Session = Depends(get_db)):
@@ -222,11 +311,11 @@ async def update_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Only poster or admin can update
     if task.poster_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized to update this task")
-    
+
     for key, value in task_update.dict(exclude_unset=True).items():
         # Locations handled separately
         if key == 'locations':
@@ -252,7 +341,7 @@ async def update_task(
                     pass
         else:
             setattr(task, key, value)
-    
+
     db.commit()
     db.refresh(task)
     return task
@@ -266,18 +355,18 @@ async def delete_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Only poster or admin can delete
     if task.poster_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized to delete this task")
-    
+
     # Delete any notifications referencing this task first to avoid FK constraint issues
     try:
         db.query(Notification).filter(Notification.task_id == task_id).delete(synchronize_session=False)
     except Exception:
         # If deletion of notifications fails for any reason, log and continue
         pass
-    
+
     db.delete(task)
     db.commit()
     return None
@@ -291,30 +380,30 @@ async def accept_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.status != "available":
         raise HTTPException(status_code=400, detail="Task is not available")
-    
+
     if task.poster_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot accept your own task")
-    
+
     task.status = "ongoing"
     task.seeker_id = current_user.id
     task.accepted_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(task)
-    
+
     # Notify poster
     create_notification(
-        db, 
-        task.poster_id, 
-        "Task Accepted", 
-        f"Your task '{task.title}' has been accepted by {current_user.name or current_user.email}.", 
-        "task_update", 
+        db,
+        task.poster_id,
+        "Task Accepted",
+        f"Your task '{task.title}' has been accepted by {current_user.name or current_user.email}.",
+        "task_update",
         task.id
     )
-    
+
     return task
 
 @app.post("/api/tasks/{task_id}/complete", response_model=TaskResponse)
@@ -326,33 +415,33 @@ async def complete_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.status != "ongoing":
         raise HTTPException(status_code=400, detail="Task is not ongoing")
-    
+
     # Only seeker can mark as complete
     if task.seeker_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the seeker can mark task as complete")
-    
+
     # Require proof image before marking as done
     if not getattr(task, 'proof_image', None):
         raise HTTPException(status_code=400, detail="Please attach a proof image before marking as done")
 
     task.status = "pending_confirmation"
-    
+
     db.commit()
     db.refresh(task)
-    
+
     # Notify poster
     create_notification(
-        db, 
-        task.poster_id, 
-        "Task Completed", 
-        f"Your task '{task.title}' has been marked as completed. Please confirm.", 
-        "task_update", 
+        db,
+        task.poster_id,
+        "Task Completed",
+        f"Your task '{task.title}' has been marked as completed. Please confirm.",
+        "task_update",
         task.id
     )
-    
+
     return task
 
 
@@ -413,31 +502,31 @@ async def confirm_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.status != "pending_confirmation":
         raise HTTPException(status_code=400, detail="Task is not pending confirmation")
-    
+
     # Only poster can confirm
     if task.poster_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the poster can confirm task completion")
-    
+
     task.status = "completed"
     task.completed_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(task)
-    
+
     # Notify seeker
     if task.seeker_id:
         create_notification(
-            db, 
-            task.seeker_id, 
-            "Task Confirmed", 
-            f"The completion of task '{task.title}' has been confirmed. Payment should be released.", 
-            "task_update", 
+            db,
+            task.seeker_id,
+            "Task Confirmed",
+            f"The completion of task '{task.title}' has been confirmed. Payment should be released.",
+            "task_update",
             task.id
         )
-    
+
     return task
 
 @app.post("/api/tasks/{task_id}/cancel", response_model=TaskResponse)
@@ -449,7 +538,7 @@ async def cancel_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Only poster can cancel available tasks, both can cancel ongoing
     if task.status == "available":
         if task.poster_id != current_user.id:
@@ -471,28 +560,28 @@ async def cancel_task(
         task.accepted_at = None
     else:
         raise HTTPException(status_code=400, detail="Cannot cancel task in current status")
-    
+
     db.commit()
     db.refresh(task)
-    
+
     # Notify other party if applicable
     if task.status == "cancelled":
         if current_user.id == task.poster_id and task.seeker_id:
             create_notification(
-                db, 
-                task.seeker_id, 
-                "Task Cancelled", 
-                f"The task '{task.title}' has been cancelled by the poster.", 
-                "task_update", 
+                db,
+                task.seeker_id,
+                "Task Cancelled",
+                f"The task '{task.title}' has been cancelled by the poster.",
+                "task_update",
                 task.id
             )
         elif current_user.id == task.seeker_id and task.poster_id:
              create_notification(
-                db, 
-                task.poster_id, 
-                "Task Cancelled", 
-                f"The task '{task.title}' has been cancelled by the seeker.", 
-                "task_update", 
+                db,
+                task.poster_id,
+                "Task Cancelled",
+                f"The task '{task.title}' has been cancelled by the seeker.",
+                "task_update",
                 task.id
             )
 
@@ -526,10 +615,10 @@ async def create_message(
     task = db.query(Task).filter(Task.id == message.task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.poster_id != current_user.id and task.seeker_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to send message for this task")
-    
+
     db_message = Message(
         **message.dict(),
         sender_id=current_user.id
@@ -537,19 +626,19 @@ async def create_message(
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
-    
+
     # Notify recipient
     recipient_id = task.poster_id if current_user.id == task.seeker_id else task.seeker_id
     if recipient_id:
         create_notification(
-            db, 
-            recipient_id, 
-            "New Message", 
-            f"You have a new message regarding task '{task.title}'.", 
-            "message", 
+            db,
+            recipient_id,
+            "New Message",
+            f"You have a new message regarding task '{task.title}'.",
+            "message",
             task.id
         )
-    
+
     return db_message
 
 @app.get("/api/tasks/{task_id}/messages", response_model=List[MessageResponse])
@@ -562,10 +651,10 @@ async def get_task_messages(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.poster_id != current_user.id and task.seeker_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to view messages for this task")
-    
+
     return db.query(Message).filter(Message.task_id == task_id).order_by(Message.created_at.asc()).all()
 
 # ==================== FEEDBACK ENDPOINTS ====================
@@ -580,25 +669,25 @@ async def create_feedback(
     task = db.query(Task).filter(Task.id == feedback.task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if task.status != "completed":
         raise HTTPException(status_code=400, detail="Can only leave feedback on completed tasks")
-    
+
     if task.poster_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the poster can leave feedback")
-    
+
     if task.seeker_id != feedback.seeker_id:
         raise HTTPException(status_code=400, detail="Invalid seeker for this task")
-    
+
     # Check if feedback already exists
     existing = db.query(Feedback).filter(
         Feedback.task_id == feedback.task_id,
         Feedback.poster_id == current_user.id
     ).first()
-    
+
     if existing:
         raise HTTPException(status_code=400, detail="Feedback already provided for this task")
-    
+
     db_feedback = Feedback(
         **feedback.dict(),
         poster_id=current_user.id
@@ -635,7 +724,7 @@ async def get_all_tasks(
 ):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     query = db.query(Task)
     if status_filter:
         query = query.filter(Task.status == status_filter)
@@ -649,18 +738,18 @@ async def admin_delete_task(
 ):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Delete any notifications referencing this task first to avoid FK constraint issues
     try:
         db.query(Notification).filter(Notification.task_id == task_id).delete(synchronize_session=False)
     except Exception:
         # If deletion of notifications fails for any reason, log and continue
         pass
-    
+
     # Delete any reports related to this task to avoid FK constraint issues
     try:
         db.query(TaskReport).filter(TaskReport.task_id == task_id).delete(synchronize_session=False)
@@ -684,7 +773,7 @@ async def create_report(
     task = db.query(Task).filter(Task.id == report.task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Create report
     # Prevent users from reporting their own tasks
     if task.poster_id == current_user.id:
@@ -710,7 +799,7 @@ async def get_reports(
     # Only admins can view reports
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     return db.query(TaskReport).order_by(TaskReport.created_at.desc()).all()
 
 
@@ -723,11 +812,11 @@ async def get_report(
     # Only admins can view reports
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     report = db.query(TaskReport).filter(TaskReport.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    
+
     return report
 
 
@@ -740,11 +829,11 @@ async def delete_report(
     # Only admins can delete reports
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
+
     report = db.query(TaskReport).filter(TaskReport.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    
+
     db.delete(report)
     db.commit()
     return None
@@ -768,10 +857,10 @@ async def mark_notification_read(
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
-    
+
     if notification.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     notification.seen = True
     db.commit()
     return None
@@ -785,10 +874,10 @@ async def delete_notification(
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
-    
+
     if notification.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     db.delete(notification)
     db.commit()
     return None
