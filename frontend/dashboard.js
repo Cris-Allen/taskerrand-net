@@ -65,19 +65,8 @@ async function loadProfileInfo() {
         if (loadingEl) loadingEl.style.display = "block";
         if (formEl) formEl.style.display = "none";
 
-        // Get user profile data from the backend
-        const profileResponse = await fetch('/api/users/me', {
-            headers: {
-                'Authorization': `Bearer ${await api.getToken()}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!profileResponse.ok) {
-            throw new Error(`Failed to load profile: ${profileResponse.statusText}`);
-        }
-
-        const profileData = await profileResponse.json();
+        // Get user profile data from the backend using the api helper method
+        const profileData = await api.getCurrentUser();
 
         // Populate the profile form
         const fullNameInput = document.getElementById("full-name");
@@ -152,22 +141,8 @@ async function handleProfileUpdate(event) {
             address: address
         };
 
-        // Update the profile via API
-        const response = await fetch('/api/users/me/profile', {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${await api.getToken()}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(profileData)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to update profile');
-        }
-
-        const updatedData = await response.json();
+        // Update the profile via API using the helper method
+        const updatedData = await api.updateUserProfile(profileData);
 
         // Update the user data in the global variable
         userData = updatedData;

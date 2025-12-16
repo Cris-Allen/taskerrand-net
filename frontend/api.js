@@ -57,6 +57,10 @@ export const api = {
     // User endpoints
     getCurrentUser: () => apiRequest("/api/users/me"),
     getUser: (userId) => apiRequest(`/api/users/${userId}`),
+    updateUserProfile: (profileData) => apiRequest("/api/users/me/profile", {
+        method: "PUT",
+        body: JSON.stringify(profileData)
+    }),
 
     // Task endpoints
     getTasks: (statusFilter = null) => {
