@@ -153,7 +153,9 @@ function displayTask() {
         ${taskData.proof_image ? (() => {
             // Ensure proof links use the backend absolute URL so they work when frontend and backend are on different origins
             const proofUrl = String(taskData.proof_image).startsWith('/') ? `${API_URL}${taskData.proof_image}` : taskData.proof_image;
-            return `<div style="margin-bottom:0.5rem;"><strong>Proof image:</strong> <br/><a href="${proofUrl}" target="_blank" rel="noopener noreferrer"><img src="${proofUrl}" alt="proof" style="max-width:180px; max-height:120px; border-radius:6px; margin-top:6px;"/></a></div>`;
+            // Use a click handler for data: URLs to avoid popup/block issues when opening directly as a href
+            const encoded = encodeURIComponent(proofUrl);
+            return `<div style="margin-bottom:0.5rem;"><strong>Proof image:</strong> <br/><a href="#" onclick="openProofFromLink(event,'${encoded}'); return false;"><img src="${proofUrl}" alt="proof" style="max-width:180px; max-height:120px; border-radius:6px; margin-top:6px;"/></a></div>`;
         })() : ''}
         <p><strong>Description:</strong></p>
         <p>${taskData.description}</p>
@@ -279,6 +281,35 @@ function setupReportButton() {
         };
     }
 }
+
+// Helper to open proof images robustly (handles data: URLs and regular URLs)
+window.openProofFromLink = function (evt, encodedUrl) {
+    try {
+        if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+        const url = decodeURIComponent(encodedUrl || '');
+        if (!url) return;
+
+        // If it's a data URL, open a new window and write a minimal HTML containing the image.
+        if (url.startsWith('data:')) {
+            const w = window.open('', '_blank');
+            if (!w) {
+                alert('Popup blocked. Please allow popups to view the proof image.');
+                return;
+            }
+            const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;background:#111"><img src="${url}" style="max-width:100%;max-height:100vh;"/></body></html>`;
+            w.document.open();
+            w.document.write(html);
+            w.document.close();
+            return;
+        }
+
+        // Otherwise, open the regular URL in a new tab safely
+        window.open(url, '_blank', 'noopener');
+    } catch (e) {
+        console.error('Failed to open proof image', e);
+        alert('Unable to open image.');
+    }
+};
 
 function setupActions() {
     const actionsContainer = document.getElementById("actions-container");
