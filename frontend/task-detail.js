@@ -266,13 +266,17 @@ function setupReportButton() {
             // hide the button to avoid confusion
             reportBtn.style.display = 'none';
             reportBtn.setAttribute('aria-hidden', 'true');
+            // remove any click handler
+            reportBtn.onclick = null;
             return;
         }
 
-        // Non-blocking navigation to the report form for other users
-        reportBtn.addEventListener("click", () => {
+        // Ensure button is visible for non-posters and set a single onclick handler
+        reportBtn.style.display = 'inline-block';
+        reportBtn.removeAttribute('aria-hidden');
+        reportBtn.onclick = (e) => {
             window.location.href = `./report-task.html?task_id=${taskId}`;
-        });
+        };
     }
 }
 
