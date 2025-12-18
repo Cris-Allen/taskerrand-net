@@ -291,20 +291,31 @@ window.openProofFromLink = function (evt, encodedUrl) {
 
         // If it's a data URL, open a new window and write a minimal HTML containing the image.
         if (url.startsWith('data:')) {
-            const w = window.open('', '_blank');
-            if (!w) {
-                alert('Popup blocked. Please allow popups to view the proof image.');
+            // Store data URL in localStorage under a short-lived key and open viewer page
+            const key = 'proof_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+            try {
+                localStorage.setItem(key, url);
+                window.open(`./proof-viewer.html?key=${encodeURIComponent(key)}`, '_blank');
+                return;
+            } catch (e) {
+                console.error('localStorage set failed, falling back to window open', e);
+                // Fallback to opening a new window and writing HTML as before
+                const w = window.open('', '_blank');
+                if (!w) {
+                    alert('Popup blocked. Please allow popups to view the proof image.');
+                    return;
+                }
+                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;background:#111"><img src="${url}" style="max-width:100%;max-height:100vh;"/></body></html>`;
+                w.document.open();
+                w.document.write(html);
+                w.document.close();
                 return;
             }
-            const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;background:#111"><img src="${url}" style="max-width:100%;max-height:100vh;"/></body></html>`;
-            w.document.open();
-            w.document.write(html);
-            w.document.close();
-            return;
         }
 
-        // Otherwise, open the regular URL in a new tab safely
-        window.open(url, '_blank', 'noopener');
+        // Otherwise, open via viewer page (ensures mobile zoom & refresh persistence)
+        const encoded = encodeURIComponent(url);
+        window.open(`./proof-viewer.html?src=${encoded}`, '_blank');
     } catch (e) {
         console.error('Failed to open proof image', e);
         alert('Unable to open image.');

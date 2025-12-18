@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Proof Viewer</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif}
+    .topbar{position:fixed;left:0;right:0;top:0;height:48px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.6);z-index:10}
+    .btn{background:#111;border:1px solid #444;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
+    .container{height:100%;display:flex;align-items:center;justify-content:center;padding-top:56px;padding-bottom:12px}
+    img{max-width:100%;max-height:calc(100vh - 72px);display:block;margin:0 auto}
+    .meta{font-size:13px;color:#ddd;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <button id="closeBtn" class="btn">Close</button>
+      <button id="downloadBtn" class="btn" style="margin-left:6px;">Download</button>
+    </div>
+    <div class="meta" id="info">&nbsp;</div>
+  </div>
+  <div class="container">
+    <img id="viewerImg" alt="Proof image" />
+  </div>
+
+  <script>
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    const key = getQueryParam('key');
+    const src = getQueryParam('src');
+    const img = document.getElementById('viewerImg');
+    const info = document.getElementById('info');
+
+    function setInfo(text){ info.textContent = text || '\u00A0'; }
+
+    if (key) {
+      const data = localStorage.getItem(key);
+      if (!data) {
+        setInfo('Image not found');
+      } else {
+        img.src = data;
+        setInfo('Tap to zoom / pinch to zoom');
+      }
+
+      // Provide a cleanup control on close button click (optional removal)
+      document.getElementById('closeBtn').addEventListener('click', () => {
+        // keep stored for now; remove only if user confirms
+        if (confirm('Close viewer and remove temporary proof image from storage? (Cancel to keep)')) {
+          try { localStorage.removeItem(key); } catch(e){}
+        }
+        window.close();
+      });
+
+      document.getElementById('downloadBtn').addEventListener('click', () => {
+        if (!img.src) return alert('No image to download');
+        const a = document.createElement('a');
+        a.href = img.src;
+        a.download = 'proof-image';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+
+    } else if (src) {
+      const decoded = decodeURIComponent(src);
+      img.src = decoded;
+      setInfo('Tap to zoom / pinch to zoom');
+
+      document.getElementById('closeBtn').addEventListener('click', () => window.close());
+      document.getElementById('downloadBtn').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = img.src;
+        a.download = 'proof-image';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    } else {
+      setInfo('No image specified');
+      document.getElementById('closeBtn').addEventListener('click', () => window.close());
+      document.getElementById('downloadBtn').addEventListener('click', () => alert('No image'));
+    }
+
+    // Allow double-tap to toggle fullscreen-ish zoom by switching max-width
+    img.addEventListener('dblclick', () => {
+      if (img.style.maxWidth === '100%') {
+        img.style.maxWidth = 'none';
+        img.style.maxHeight = 'none';
+      } else {
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = 'calc(100vh - 72px)';
+      }
+    });
+  </script>
+</body>
+</html>
