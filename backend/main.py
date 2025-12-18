@@ -63,14 +63,26 @@ async def get_current_user_db(
     # Get or create user in database
     user = db.query(User).filter(User.firebase_uid == user_data["uid"]).first()
     if not user:
-        # Parse first/last name from provider name when available
+        # Prefer explicit provider fields when available (given_name / family_name)
         name_full = (user_data.get("name") or "").strip()
-        first_name = None
-        last_name = None
-        if name_full:
+        given = user_data.get("given_name") or user_data.get("first_name")
+        family = user_data.get("family_name") or user_data.get("last_name")
+
+        if given or family:
+            first_name = given or None
+            last_name = family or None
+        else:
+            # Fallback: use all-but-last as first name, last token as last name
             parts = name_full.split()
-            first_name = parts[0]
-            last_name = ' '.join(parts[1:]) if len(parts) > 1 else None
+            if len(parts) == 0:
+                first_name = None
+                last_name = None
+            elif len(parts) == 1:
+                first_name = parts[0]
+                last_name = None
+            else:
+                first_name = ' '.join(parts[:-1])
+                last_name = parts[-1]
 
         user = User(
             firebase_uid=user_data["uid"],
@@ -86,17 +98,32 @@ async def get_current_user_db(
         db.refresh(user)
     else:
         # Ensure first_name/last_name are populated for existing users if possible
-        if (not user.first_name or not user.last_name) and user_data.get("name"):
+        given = user_data.get("given_name") or user_data.get("first_name")
+        family = user_data.get("family_name") or user_data.get("last_name")
+        if given or family:
+            if not user.first_name and given:
+                user.first_name = given
+            if not user.last_name and family:
+                user.last_name = family
+            try:
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
+        elif (not user.first_name or not user.last_name) and user_data.get("name"):
             name_full = user_data.get("name").strip()
             parts = name_full.split()
-            if parts:
+            if len(parts) == 1:
                 user.first_name = parts[0]
-                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else None
-                try:
-                    db.commit()
-                    db.refresh(user)
-                except Exception:
-                    db.rollback()
+                user.last_name = None
+            else:
+                user.first_name = ' '.join(parts[:-1])
+                user.last_name = parts[-1]
+            try:
+                db.commit()
+                db.refresh(user)
+            except Exception:
+                db.rollback()
 
     return user
 

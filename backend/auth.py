@@ -56,7 +56,9 @@ async def verify_firebase_token(token: str) -> Optional[Dict]:
             "uid": uid,
             "email": payload.get("email", ""),
             "name": payload.get("name", ""),
-            "picture": payload.get("picture", "")
+            "picture": payload.get("picture", ""),
+            "given_name": payload.get("given_name") or payload.get("first_name"),
+            "family_name": payload.get("family_name") or payload.get("last_name")
         }
         
         print(f"DEBUG: Successfully decoded token for user: {result.get('email', 'unknown')}")
