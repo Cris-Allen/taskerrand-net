@@ -289,23 +289,50 @@ window.openProofFromLink = function (evt, encodedUrl) {
         const url = decodeURIComponent(encodedUrl || '');
         if (!url) return;
 
-        // If it's a data URL, open a new window and write a minimal HTML containing the image.
+        // If it's a data URL, prefer opening the viewer page and sending the data via postMessage
         if (url.startsWith('data:')) {
-            // Store data URL in localStorage under a short-lived key and open viewer page
             const key = 'proof_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+
+            // Try to open the viewer page and post the image data to it for reliable behavior
             try {
-                localStorage.setItem(key, url);
-                window.open(`./proof-viewer.html?key=${encodeURIComponent(key)}`, '_blank');
+                const w = window.open(`./proof-viewer.html?msg=1`, '_blank');
+                if (!w) throw new Error('Popup blocked');
+
+                // Try to post the data; keep trying for a short period until the window accepts messages
+                let attempts = 0;
+                const maxAttempts = 40; // ~2 seconds at 50ms interval
+                const interval = setInterval(() => {
+                    try {
+                        // Also store in localStorage if available for persistence on refresh
+                        try { localStorage.setItem(key, url); } catch(e) { /* ignore */ }
+                        w.postMessage({ type: 'proof_data', key, data: url }, '*');
+                        clearInterval(interval);
+                    } catch (postErr) {
+                        attempts++;
+                        if (attempts >= maxAttempts) {
+                            clearInterval(interval);
+                            // As a last resort if posting failed, try writing a full viewer HTML into the opened window.
+                            try {
+                                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" /><style>html,body{height:100%;margin:0;background:#000;color:#fff}img{max-width:100%;max-height:100vh;display:block;margin:0 auto}</style></head><body><img src="${url}" alt="proof image"/></body></html>`;
+                                w.document.open();
+                                w.document.write(html);
+                                w.document.close();
+                            } catch (writeErr) {
+                                alert('Popup blocked. Please allow popups to view the proof image.');
+                            }
+                        }
+                    }
+                }, 50);
+
                 return;
             } catch (e) {
-                console.error('localStorage set failed, falling back to window open', e);
-                // Fallback to opening a new window and writing HTML as before
+                // Popup blocked or other error: fallback to opening a blank page and writing viewer HTML
                 const w = window.open('', '_blank');
                 if (!w) {
                     alert('Popup blocked. Please allow popups to view the proof image.');
                     return;
                 }
-                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;background:#111"><img src="${url}" style="max-width:100%;max-height:100vh;"/></body></html>`;
+                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Proof image</title><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" /><style>html,body{height:100%;margin:0;background:#000;color:#fff}img{max-width:100%;max-height:100vh;display:block;margin:0 auto}</style></head><body><img src="${url}" alt="proof image"/></body></html>`;
                 w.document.open();
                 w.document.write(html);
                 w.document.close();

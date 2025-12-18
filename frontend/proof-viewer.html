@@ -81,9 +81,42 @@
         a.remove();
       });
     } else {
-      setInfo('No image specified');
+      // Listen for postMessage from the opener (preferred way for large data URLs)
+      let received = false;
+      const receiveHandler = (ev) => {
+        try {
+          if (!ev || !ev.data || ev.data.type !== 'proof_data') return;
+          const payload = ev.data;
+          if (payload && payload.data) {
+            const dataUrl = payload.data;
+            // store in localStorage under provided key if present
+            if (payload.key) {
+              try { localStorage.setItem(payload.key, dataUrl); } catch(e) {}
+            }
+            img.src = dataUrl;
+            setInfo('Tap to zoom / pinch to zoom');
+            received = true;
+          }
+        } catch (e) { console.error('message handler error', e); }
+      };
+
+      window.addEventListener('message', receiveHandler);
+
+      // If no message arrives within 2 seconds, show fallback notice
+      setTimeout(() => {
+        if (!received) setInfo('Waiting for image... (If nothing appears, try enabling popups)');
+      }, 2000);
+
       document.getElementById('closeBtn').addEventListener('click', () => window.close());
-      document.getElementById('downloadBtn').addEventListener('click', () => alert('No image'));
+      document.getElementById('downloadBtn').addEventListener('click', () => {
+        if (!img.src) return alert('No image to download');
+        const a = document.createElement('a');
+        a.href = img.src;
+        a.download = 'proof-image';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
     }
 
     // Allow double-tap to toggle fullscreen-ish zoom by switching max-width
