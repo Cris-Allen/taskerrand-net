@@ -63,16 +63,40 @@ async def get_current_user_db(
     # Get or create user in database
     user = db.query(User).filter(User.firebase_uid == user_data["uid"]).first()
     if not user:
+        # Parse first/last name from provider name when available
+        name_full = (user_data.get("name") or "").strip()
+        first_name = None
+        last_name = None
+        if name_full:
+            parts = name_full.split()
+            first_name = parts[0]
+            last_name = ' '.join(parts[1:]) if len(parts) > 1 else None
+
         user = User(
             firebase_uid=user_data["uid"],
             email=user_data.get("email", ""),
-            name=user_data.get("name", ""),
+            name=name_full,
+            first_name=first_name,
+            last_name=last_name,
             photo_url=user_data.get("picture", ""),
             is_admin=user_data.get("email") == ("neowarsia@gmail.com")  # Admin check
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        # Ensure first_name/last_name are populated for existing users if possible
+        if (not user.first_name or not user.last_name) and user_data.get("name"):
+            name_full = user_data.get("name").strip()
+            parts = name_full.split()
+            if parts:
+                user.first_name = parts[0]
+                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else None
+                try:
+                    db.commit()
+                    db.refresh(user)
+                except Exception:
+                    db.rollback()
 
     return user
 
@@ -465,25 +489,30 @@ async def upload_proof(
     if not (file.content_type and file.content_type.startswith('image/')):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
-    # Save file (sanitize filename to avoid path parts)
-    original_name = os.path.basename(file.filename)
-    filename = f"task_{task_id}_{uuid.uuid4().hex}_{original_name}"
-    # Ensure upload dir exists
-    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs')
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, filename)
-    with open(file_path, 'wb') as f:
-        content = await file.read()
-        f.write(content)
+    # Read file contents
+    content = await file.read()
 
-    # Log saved path for debugging
+    # Store as a data URL in the DB (persist across deployments)
+    import base64
     try:
-        print(f"DEBUG: saved proof file to {file_path}")
+        b64 = base64.b64encode(content).decode('ascii')
+        data_url = f"data:{file.content_type};base64,{b64}"
+        task.proof_image = data_url
     except Exception:
-        pass
+        # Fallback: write to disk if encoding fails
+        original_name = os.path.basename(file.filename)
+        filename = f"task_{task_id}_{uuid.uuid4().hex}_{original_name}"
+        upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs')
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, filename)
+        with open(file_path, 'wb') as f:
+            f.write(content)
+        try:
+            print(f"DEBUG: saved proof file to {file_path}")
+        except Exception:
+            pass
+        task.proof_image = f"/uploads/proofs/{filename}"
 
-    # Store relative URL path that frontend can use (served under /uploads)
-    task.proof_image = f"/uploads/proofs/{filename}"
     db.commit()
     db.refresh(task)
 
@@ -560,16 +589,24 @@ async def cancel_task(
         # If the poster cancels an ongoing task, mark it as cancelled.
         seeker_cancelled = (current_user.id == task.seeker_id and task.poster_id != task.seeker_id)
         if seeker_cancelled:
-            # Make the task available again; do not delete the proof image automatically so it remains as historical proof.
+            # Make the task available again. If the seeker cancelled their own acceptance,
+            # remove any uploaded proof (they cancelled their work and their proof should be cleared).
             task.status = "available"
+            if getattr(task, 'proof_image', None):
+                # Only attempt filesystem deletion for legacy stored files under /uploads
+                if isinstance(task.proof_image, str) and task.proof_image.startswith('/uploads'):
+                    try:
+                        filename = os.path.basename(task.proof_image)
+                        file_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs', filename)
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                    except Exception:
+                        pass
+                task.proof_image = None
         else:
             task.status = "cancelled"
         task.seeker_id = None
         task.accepted_at = None
-
-        # NOTE: We intentionally keep any already-uploaded proof image files and DB reference in place
-        # so that the proof remains accessible as a historical record for the poster and seeker. Files
-        # will not be removed automatically during cancellation to avoid losing evidence.
     else:
         raise HTTPException(status_code=400, detail="Cannot cancel task in current status")
 

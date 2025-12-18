@@ -339,14 +339,16 @@ async function loadMyTasksWithFilter(statusFilter = null) {
 
                 return `
                 <div class="task-card" onclick="window.location.href='./task-detail.html?id=${task.id}'">
+                    <a></a>
                     <h3>Task: ${task.title}</h3>
-                    <div class="task-creator">Created by: <a href="./other-users-dashboard.html?user_id=${task.poster_id}" onclick="event.stopPropagation();">${posterName}</a></div>
-                    ${seekerName ? `<div class="task-acceptor">Accepted by: <a href="./other-users-dashboard.html?user_id=${task.seeker_id}" onclick="event.stopPropagation();">${seekerName}</a></div>` : ''}
+                    <div class="task-creator">Created by: <span class="creator-name">${posterName}</span></div>
+                    ${seekerName ? `<div class="task-acceptor">Accepted by: <span class="creator-name">${seekerName}</span></div>` : ''}
                     <p>Description: ${task.description.substring(0, 100)}${task.description.length > 100 ? '...' : ''}</p>
                     <div class="task-meta">
                         <span style="display: block" class="task-status status-${task.status}">Status: ${task.status.replace('_', ' ')}</span>
                         <span><strong>Payment: ₱${task.payment.toFixed(2)}</strong></span>
                     </div>
+                    <a></a>
                 </div>
             `;
             }));
