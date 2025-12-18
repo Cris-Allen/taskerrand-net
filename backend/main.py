@@ -465,8 +465,9 @@ async def upload_proof(
     if not (file.content_type and file.content_type.startswith('image/')):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
-    # Save file
-    filename = f"task_{task_id}_{uuid.uuid4().hex}_{file.filename}"
+    # Save file (sanitize filename to avoid path parts)
+    original_name = os.path.basename(file.filename)
+    filename = f"task_{task_id}_{uuid.uuid4().hex}_{original_name}"
     # Ensure upload dir exists
     upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs')
     os.makedirs(upload_dir, exist_ok=True)
@@ -474,6 +475,12 @@ async def upload_proof(
     with open(file_path, 'wb') as f:
         content = await file.read()
         f.write(content)
+
+    # Log saved path for debugging
+    try:
+        print(f"DEBUG: saved proof file to {file_path}")
+    except Exception:
+        pass
 
     # Store relative URL path that frontend can use (served under /uploads)
     task.proof_image = f"/uploads/proofs/{filename}"
@@ -553,39 +560,16 @@ async def cancel_task(
         # If the poster cancels an ongoing task, mark it as cancelled.
         seeker_cancelled = (current_user.id == task.seeker_id and task.poster_id != task.seeker_id)
         if seeker_cancelled:
+            # Make the task available again; do not delete the proof image automatically so it remains as historical proof.
             task.status = "available"
-            # If the seeker cancels, remove any uploaded proof image (both DB ref and stored file)
-            if getattr(task, 'proof_image', None):
-                try:
-                    filename = os.path.basename(task.proof_image)
-                    file_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs', filename)
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                except Exception:
-                    # Non-fatal: if deletion fails, ignore so cancellation still proceeds
-                    pass
-                task.proof_image = None
         else:
             task.status = "cancelled"
         task.seeker_id = None
         task.accepted_at = None
 
-        # If the task no longer has a seeker (e.g., seeker cancelled or task returned to available/cancelled),
-        # remove any uploaded proof image from disk and clear the DB reference to avoid stale images.
-        if getattr(task, 'proof_image', None) and not task.seeker_id:
-            try:
-                filename = os.path.basename(task.proof_image)
-                file_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs', filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    try:
-                        print(f"DEBUG: removed proof file {file_path} for task {task.id}")
-                    except Exception:
-                        pass
-            except Exception:
-                # Non-fatal; continue cancellation
-                pass
-            task.proof_image = None
+        # NOTE: We intentionally keep any already-uploaded proof image files and DB reference in place
+        # so that the proof remains accessible as a historical record for the poster and seeker. Files
+        # will not be removed automatically during cancellation to avoid losing evidence.
     else:
         raise HTTPException(status_code=400, detail="Cannot cancel task in current status")
 

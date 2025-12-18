@@ -162,7 +162,7 @@ async function loadUserTasksWithFilter(statusFilter = null) {
             return `
                 <div class="task-card" onclick="window.location.href='./task-detail.html?id=${task.id}'">
                     <h3>Task: ${task.title}</h3>
-                    <div class="task-creator">Created by: <a href="./other-users-dashboard.html?user_id=${task.poster_id}">${posterName}</a></div>
+                    <div class="task-creator">Created by: <a href="./other-users-dashboard.html?user_id=${task.poster_id}" onclick="event.stopPropagation();">${posterName}</a></div>
                     <p>Description: ${task.description ? task.description.substring(0, 100) : ''}${task.description && task.description.length > 100 ? '...' : ''}</p>
                     <div class="task-meta">
                         <span style="display: block" class="task-status status-${task.status}">Status: ${task.status.replace('_', ' ')}</span>
