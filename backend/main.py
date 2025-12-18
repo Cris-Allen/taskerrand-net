@@ -569,6 +569,23 @@ async def cancel_task(
             task.status = "cancelled"
         task.seeker_id = None
         task.accepted_at = None
+
+        # If the task no longer has a seeker (e.g., seeker cancelled or task returned to available/cancelled),
+        # remove any uploaded proof image from disk and clear the DB reference to avoid stale images.
+        if getattr(task, 'proof_image', None) and not task.seeker_id:
+            try:
+                filename = os.path.basename(task.proof_image)
+                file_path = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'proofs', filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    try:
+                        print(f"DEBUG: removed proof file {file_path} for task {task.id}")
+                    except Exception:
+                        pass
+            except Exception:
+                # Non-fatal; continue cancellation
+                pass
+            task.proof_image = None
     else:
         raise HTTPException(status_code=400, detail="Cannot cancel task in current status")
 

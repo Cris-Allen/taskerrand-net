@@ -352,10 +352,25 @@ async function acceptTask() {
 async function completeTask() {
     if (!confirm("Mark this task as complete?")) return;
 
-    // Check that seeker has uploaded proof image before sending request
+    // If proof not yet uploaded to the server but user has selected a file, upload it first
     if (!taskData || !taskData.proof_image) {
-        alert('Please attach a proof image before you can mark this task as done. Use the Upload Proof button above.');
-        return;
+        const fileInput = document.getElementById('proof-file-input');
+        const file = fileInput && fileInput.files && fileInput.files[0];
+        if (file) {
+            // Try to upload the selected file first and update local taskData
+            try {
+                const updated = await api.uploadProof(taskId, file);
+                taskData = updated;
+                // Refresh UI so proof shows up and Mark as done will proceed
+                await loadTask();
+            } catch (err) {
+                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                return;
+            }
+        } else {
+            alert('Please attach a proof image before you can mark this task as done. Select a file or use the Upload Proof button.');
+            return;
+        }
     }
     
     try {
@@ -385,6 +400,13 @@ async function cancelTask() {
     try {
         await api.cancelTask(taskId);
         alert("Task cancelled.");
+        // Clear any locally selected file and preview so UI returns to default immediately
+        const fileInput = document.getElementById('proof-file-input');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        const preview = document.getElementById('proof-preview');
+        if (preview) preview.innerHTML = '';
         loadTask();
     } catch (error) {
         alert("Error: " + error.message);
