@@ -169,13 +169,12 @@ function displayTask() {
                 return taskData.location_address ? `<p><strong>Location:</strong> ${taskData.location_address}</p>` : '';
             })()}
         </div>
-        <div style="position: relative; margin-top: 1rem;">
+        <div style="margin-top: 1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                <button id="toggle-map-btn" class="side-map-btn" style="padding: 8px 12px; background-color: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">Hide map</button>
+                <button id="report-task-btn" class="side-report-btn" style="padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">Report This Task</button>
+            </div>
             <div id="map" style="width: 100%; height: 300px; border-radius: 6px;"></div>
-            <!-- Toggle and report buttons placed as overlays on the map -->
-            <button id="toggle-map-btn" class="side-map-btn" style="position: absolute; top: 12px; left: 12px; padding: 8px 12px; background-color: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; z-index: 1000;">Hide map</button>
-            <button id="report-task-btn" class="side-report-btn" style="position: absolute; top: 12px; right: 12px; padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; z-index: 1000;">
-                Report This Task
-            </button>
         </div>
     `;
     
