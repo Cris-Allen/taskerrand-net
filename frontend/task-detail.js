@@ -171,7 +171,8 @@ function displayTask() {
         </div>
         <div style="position: relative; margin-top: 1rem;">
             <div id="map" style="width: 100%; height: 300px; border-radius: 6px;"></div>
-            <!-- Report button placed as an overlay on the right side of the map -->
+            <!-- Toggle and report buttons placed as overlays on the map -->
+            <button id="toggle-map-btn" class="side-map-btn" style="position: absolute; top: 12px; left: 12px; padding: 8px 12px; background-color: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; z-index: 1000;">Hide map</button>
             <button id="report-task-btn" class="side-report-btn" style="position: absolute; top: 12px; right: 12px; padding: 8px 12px; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; z-index: 1000;">
                 Report This Task
             </button>
@@ -180,6 +181,43 @@ function displayTask() {
     
     // Initialize map after a short delay to ensure DOM is ready
     setTimeout(initMap, 100);
+
+    // Wire up the map toggle button (Hide map / Show map)
+    const toggleBtn = document.getElementById('toggle-map-btn');
+    if (toggleBtn) {
+        const updateToggleState = () => {
+            const mapEl = document.getElementById('map');
+            if (!mapEl) return;
+            if (mapEl.style.display === 'none') {
+                toggleBtn.textContent = 'Show map';
+            } else {
+                toggleBtn.textContent = 'Hide map';
+            }
+        };
+
+        toggleBtn.addEventListener('click', () => {
+            const mapEl = document.getElementById('map');
+            if (!mapEl) return;
+            if (mapEl.style.display === 'none' || getComputedStyle(mapEl).display === 'none') {
+                // show
+                mapEl.style.display = 'block';
+                toggleBtn.textContent = 'Hide map';
+                if (map) {
+                    try { map.invalidateSize(); } catch (e) { /* ignore */ }
+                } else {
+                    // Not initialized yet (rare), initialize after a tiny delay
+                    setTimeout(initMap, 50);
+                }
+            } else {
+                // hide
+                mapEl.style.display = 'none';
+                toggleBtn.textContent = 'Show map';
+            }
+        });
+
+        // Ensure correct initial label
+        setTimeout(updateToggleState, 120);
+    }
 }
 
 function initMap() {
