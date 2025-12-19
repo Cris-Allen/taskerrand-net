@@ -25,7 +25,14 @@ onAuthStateChanged(auth, async (user) => {
     // populate header profile/name (same as other pages)
     const usernameEl = document.getElementById("username");
     const profileEl = document.getElementById("profile");
-    if (usernameEl) usernameEl.textContent = user.displayName || user.email;
+    if (usernameEl) {
+        usernameEl.textContent = user.displayName || user.email;
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = payload.name ? `Welcome, ${payload.name}!` : (payload.email || user.email); } catch (err) {}
+            }
+        });
+    }
     if (profileEl) profileEl.src = user.photoURL || "";
 
     try {

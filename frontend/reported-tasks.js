@@ -26,11 +26,21 @@ onAuthStateChanged(auth, async (user) => {
 
     if (usernameEl) {
         usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.displayName || user.email)}!`; } catch (err) {}
+            }
+        });
     }
 
     if (profileEl) {
         profileEl.src = user.photoURL || "";
         profileEl.alt = user.displayName || "Profile";
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); profileEl.src = payload.photoURL || user.photoURL || ""; } catch (err) {}
+            }
+        });
     }
 
     try {

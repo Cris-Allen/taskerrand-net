@@ -28,6 +28,11 @@ onAuthStateChanged(auth, async (user) => {
 
     if (usernameEl) {
         usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = `Welcome, ${payload.name || payload.email || user.displayName}!`; } catch (err) {}
+            }
+        });
     }
 
     if (profileEl) {

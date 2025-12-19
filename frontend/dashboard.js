@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 import { firebaseConfig } from "./config.js";
 import { api } from "./api.js";
 
@@ -50,6 +50,17 @@ function displayUserInfo(user, userData) {
         // Display the combined name if available, otherwise use Firebase display name or email
         const displayName = userData ? (userData.name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || user.displayName) : user.displayName;
         usernameEl.textContent = `Welcome, ${displayName || user.email}!`;
+
+        // Listen for profile updates broadcast from other tabs
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try {
+                    const payload = JSON.parse(e.newValue);
+                    const name = payload.name || payload.email || '';
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                } catch (err) { /* ignore malformed */ }
+            }
+        });
     }
 
     if (profileEl) {
@@ -166,6 +177,22 @@ async function handleProfileUpdate(event) {
         const usernameEl = document.getElementById("username");
         if (usernameEl) {
             usernameEl.textContent = `Welcome, ${updatedData.name || updatedData.email}!`;
+        }
+
+        // Update Firebase auth displayName so other pages show the updated name
+        try {
+            if (auth && auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: updatedData.name || auth.currentUser.displayName });
+            }
+        } catch (e) {
+            console.error('Error updating Firebase profile displayName:', e);
+        }
+
+        // Broadcast update to other open tabs via localStorage so headers update immediately
+        try {
+            localStorage.setItem('profile_update', JSON.stringify({ name: updatedData.name || updatedData.email || '', email: updatedData.email || '', ts: Date.now() }));
+        } catch (e) {
+            // ignore
         }
 
         showMessage("Profile updated successfully!", "success");

@@ -15,7 +15,14 @@ onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = './index.html'; return; }
     const usernameEl = document.getElementById('username');
     const profileEl = document.getElementById('profile');
-    if (usernameEl) usernameEl.textContent = user.displayName || user.email;
+    if (usernameEl) {
+        usernameEl.textContent = user.displayName || user.email;
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = payload.name ? payload.name : (payload.email || user.email); } catch (err) {}
+            }
+        });
+    }
     if (profileEl) profileEl.src = user.photoURL || '';
     await performAdminSearch();
     loadNotifications();
