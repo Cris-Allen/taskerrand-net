@@ -17,13 +17,15 @@ onAuthStateChanged(auth, async (user) => {
     const profileEl = document.getElementById('profile');
     if (usernameEl) {
         usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
-        // Apply stored profile update if present (covers same-tab navigation)
+        // Apply stored profile update if present (covers same-tab navigation) by verifying with backend
         try {
             const stored = localStorage.getItem('profile_update');
             if (stored) {
-                const payload = JSON.parse(stored);
-                usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.email)}!`;
-                if (profileEl) profileEl.src = payload.photoURL || profileEl.src || user.photoURL || '';
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (profileEl.src || user.photoURL || '');
+                }).catch(()=>{});
             }
         } catch (err) {}
         window.addEventListener('storage', (e) => {

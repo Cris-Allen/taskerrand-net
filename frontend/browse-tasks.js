@@ -18,24 +18,32 @@ onAuthStateChanged(auth, async (user) => {
     const profileEl = document.getElementById("profile");
     
     if (usernameEl) {
-        usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
-        // Apply stored profile update if present (covers same-tab navigation)
+        try {
+            const userData = await api.getCurrentUser();
+            const displayName = userData ? (userData.name || `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || user.displayName) : user.displayName;
+            usernameEl.textContent = `Welcome, ${displayName || user.email}!`;
+            if (profileEl) profileEl.src = (userData && userData.photo_url) ? userData.photo_url : (user.photoURL || "");
+        } catch (err) {
+            usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+            if (profileEl) profileEl.src = user.photoURL || "";
+        }
+
         try {
             const stored = localStorage.getItem('profile_update');
             if (stored) {
-                api.getCurrentUser().then(updated => {
-                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
-                    usernameEl.textContent = `Welcome, ${name}!`;
-                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
-                }).catch(()=>{});
+                const updated = await api.getCurrentUser();
+                const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                usernameEl.textContent = `Welcome, ${name}!`;
+                if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (profileEl.src || user.photoURL || "");
             }
         } catch (err) {}
+
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
                 api.getCurrentUser().then(updated => {
                     const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
                     usernameEl.textContent = `Welcome, ${name}!`;
-                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (profileEl.src || user.photoURL || "");
                 }).catch(()=>{});
             }
         });

@@ -257,6 +257,22 @@ async function handleProfileSave(event) {
             usernameEl.textContent = `Welcome, ${updatedData.name || updatedData.email}!`;
         }
 
+n        // Update Firebase auth displayName so other pages show the updated name (same as handleProfileUpdate)
+        try {
+            if (auth && auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: updatedData.name || auth.currentUser.displayName });
+            }
+        } catch (e) {
+            console.error('Error updating Firebase profile displayName:', e);
+        }
+
+        // Broadcast update to other open tabs via localStorage so headers update immediately
+        try {
+            localStorage.setItem('profile_update', JSON.stringify({ name: updatedData.name || updatedData.email || '', email: updatedData.email || '', ts: Date.now() }));
+        } catch (e) {
+            // ignore
+        }
+
         showMessage("Profile saved successfully!", "success");
     } catch (error) {
         console.error("Error saving profile:", error);
