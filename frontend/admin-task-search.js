@@ -16,10 +16,19 @@ onAuthStateChanged(auth, async (user) => {
     const usernameEl = document.getElementById('username');
     const profileEl = document.getElementById('profile');
     if (usernameEl) {
-        usernameEl.textContent = user.displayName || user.email;
+        usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+        // Apply stored profile update if present (covers same-tab navigation)
+        try {
+            const stored = localStorage.getItem('profile_update');
+            if (stored) {
+                const payload = JSON.parse(stored);
+                usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.email)}!`;
+                if (profileEl) profileEl.src = payload.photoURL || profileEl.src || user.photoURL || '';
+            }
+        } catch (err) {}
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
-                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = payload.name ? payload.name : (payload.email || user.email); } catch (err) {}
+                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.email)}!`; } catch (err) {}
             }
         });
     }

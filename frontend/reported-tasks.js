@@ -26,6 +26,15 @@ onAuthStateChanged(auth, async (user) => {
 
     if (usernameEl) {
         usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
+        // Apply stored profile update if present (covers same-tab navigation)
+        try {
+            const stored = localStorage.getItem('profile_update');
+            if (stored) {
+                const payload = JSON.parse(stored);
+                usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.displayName || user.email)}!`;
+                if (profileEl) profileEl.src = payload.photoURL || profileEl.src || user.photoURL || "";
+            }
+        } catch (err) {}
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
                 try { const payload = JSON.parse(e.newValue); usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.displayName || user.email)}!`; } catch (err) {}
