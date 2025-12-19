@@ -37,6 +37,11 @@ onAuthStateChanged(auth, (user) => {
     
     if (profileEl) {
         profileEl.src = user.photoURL || "";
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'profile_update' && e.newValue) {
+                try { const payload = JSON.parse(e.newValue); profileEl.src = payload.photoURL || user.photoURL || ""; } catch (err) { }
+            }
+        });
     }
     
     // Initialize map after DOM is ready
