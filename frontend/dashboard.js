@@ -257,7 +257,7 @@ async function handleProfileSave(event) {
             usernameEl.textContent = `Welcome, ${updatedData.name || updatedData.email}!`;
         }
 
-n        // Update Firebase auth displayName so other pages show the updated name (same as handleProfileUpdate)
+        // Update Firebase auth displayName so other pages show the updated name (same as handleProfileUpdate)
         try {
             if (auth && auth.currentUser) {
                 await updateProfile(auth.currentUser, { displayName: updatedData.name || auth.currentUser.displayName });
