@@ -33,21 +33,25 @@ onAuthStateChanged(auth, async (user) => {
     
     if (usernameEl) {
         usernameEl.textContent = `Welcome, ${user.displayName || user.email}!`;
-        // Apply stored profile update if present (covers same-tab navigation)
+        // Apply stored profile update if present (covers same-tab navigation) by fetching authoritative user data
         try {
             const stored = localStorage.getItem('profile_update');
             if (stored) {
-                const payload = JSON.parse(stored);
-                usernameEl.textContent = `Welcome, ${payload.name || payload.email || user.displayName || user.email}!`;
-                if (profileEl) profileEl.src = payload.photoURL || profileEl.src || user.photoURL || "";
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
+                }).catch(()=>{});
             }
         } catch (err) {}
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
-                try {
-                    const payload = JSON.parse(e.newValue);
-                    usernameEl.textContent = payload.name ? `Welcome, ${payload.name}!` : `Welcome, ${payload.email || user.email}!`;
-                } catch (err) { }
+                // fetch updated profile from backend to mirror Dashboard behavior and avoid inconsistencies
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
+                }).catch(()=>{});
             }
         });
     }

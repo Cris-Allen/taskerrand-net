@@ -28,7 +28,11 @@ onAuthStateChanged(auth, async (user) => {
         } catch (err) {}
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
-                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = `Welcome, ${payload.name ? payload.name : (payload.email || user.email)}!`; } catch (err) {}
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || '');
+                }).catch(()=>{});
             }
         });
     }

@@ -23,14 +23,20 @@ onAuthStateChanged(auth, async (user) => {
         try {
             const stored = localStorage.getItem('profile_update');
             if (stored) {
-                const payload = JSON.parse(stored);
-                usernameEl.textContent = payload.name ? `Welcome, ${payload.name}!` : `Welcome, ${payload.email || user.email}!`;
-                if (profileEl) profileEl.src = payload.photoURL || profileEl.src || user.photoURL || "";
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
+                }).catch(()=>{});
             }
         } catch (err) {}
         window.addEventListener('storage', (e) => {
             if (e.key === 'profile_update' && e.newValue) {
-                try { const payload = JSON.parse(e.newValue); usernameEl.textContent = payload.name ? `Welcome, ${payload.name}!` : `Welcome, ${payload.email || user.email}!`; } catch (err) {}
+                api.getCurrentUser().then(updated => {
+                    const name = updated ? (updated.name || `${updated.first_name || ''} ${updated.last_name || ''}`.trim() || updated.email) : (user.displayName || user.email);
+                    usernameEl.textContent = `Welcome, ${name}!`;
+                    if (profileEl) profileEl.src = (updated && updated.photo_url) ? updated.photo_url : (user.photoURL || profileEl.src || "");
+                }).catch(()=>{});
             }
         });
     }
